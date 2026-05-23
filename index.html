@@ -1,0 +1,2845 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>《九天塵緣錄》動態劇本模擬器 · 自由創世版</title>
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="plots.js"></script> 
+
+    <style>
+        :root {
+            --bg-color: #0b0c10; --panel-bg: #1f2833; --border-color: #2f3e46;
+            --accent-cyan: #45f3ff; --accent-gold: #f1c40f; --accent-pink: #ff4081;
+            --text-main: #c5c6c7; --text-bright: #ffffff;
+            --time-color: #9b59b6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-color); color: var(--text-main);
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            display: flex; flex-direction: column; height: 100vh; padding: 10px; overflow: hidden;
+            transition: background 0.5s ease;
+            -webkit-user-select: none; user-select: none;
+        }
+        
+        body.time-modern { background-color: #0d1b2a; --panel-bg: #1b263b; }
+        body.time-ancient { background-color: #0b0c10; --panel-bg: #1f2833; }
+
+        header { 
+            text-align: center; padding: 6px 20px; border-bottom: 1px solid var(--border-color); 
+            flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; 
+        }
+        header h1 { color: var(--accent-gold); font-size: 20px; letter-spacing: 2px; }
+        /* 登入畫面容器 */
+        .login-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: linear-gradient(135deg, #0a0f1a 0%, #0d1525 100%);
+            z-index: 100000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+        }
+
+        .login-container {
+            background: rgba(25, 35, 50, 0.95);
+            border: 2px solid var(--accent-gold);
+            border-radius: 24px;
+            padding: 40px;
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .login-title {
+            font-family: 'KaiTi', serif;
+            font-size: 48px;
+            color: var(--accent-gold);
+            text-shadow: 0 0 20px rgba(241,196,15,0.5);
+            margin-bottom: 10px;
+        }
+
+        .login-subtitle {
+            color: #aaa;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+
+        .login-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+
+        .google-login-btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 40px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: transform 0.2s;
+        }
+
+        .guest-login-btn {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 40px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .google-login-btn:hover, .guest-login-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* 存檔槽區域 */
+        .slot-selection {
+            margin-top: 20px;
+            border-top: 1px solid #3a4a5a;
+            padding-top: 30px;
+            display: none;
+        }
+
+        .slot-title {
+            color: var(--accent-cyan);
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .slots-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .slot-card {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid #3a4a5a;
+            border-radius: 16px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .slot-card:hover {
+            border-color: var(--accent-gold);
+            transform: scale(1.02);
+        }
+
+        .slot-card.selected {
+            border-color: var(--accent-cyan);
+            background: rgba(69,243,255,0.1);
+            box-shadow: 0 0 15px rgba(69,243,255,0.3);
+        }
+
+        .slot-card.occupied {
+            border-color: #27ae60;
+        }
+
+        .slot-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--text-bright);
+            margin-bottom: 8px;
+        }
+
+        .slot-info {
+            font-size: 11px;
+            color: #888;
+            word-break: break-all;
+        }
+
+        .slot-status-empty {
+            color: #e74c3c;
+            font-size: 12px;
+        }
+
+        .slot-status-occupied {
+            color: #27ae60;
+            font-size: 12px;
+        }
+
+        /* 修士尊號輸入區 */
+        .name-input-area {
+            margin-top: 30px;
+            border-top: 1px solid #3a4a5a;
+            padding-top: 30px;
+            display: none;
+        }
+
+        .name-input-area input {
+            width: 80%;
+            padding: 14px 20px;
+            font-size: 16px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid var(--accent-gold);
+            border-radius: 40px;
+            color: white;
+            text-align: center;
+            font-family: 'KaiTi', serif;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .name-input-area input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(69,243,255,0.3);
+        }
+
+        .enter-game-btn {
+            background: linear-gradient(145deg, #7a4a28, #543118);
+            color: #fef0da;
+            border: 1px solid #dba459;
+            padding: 12px 40px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 40px;
+            font-family: 'KaiTi', serif;
+            transition: all 0.2s;
+        }
+
+        .enter-game-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        .user-info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 15px;
+            border-radius: 40px;
+            margin-bottom: 20px;
+            font-size: 12px;
+        }
+
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .admin-btn { 
+            background: #e67e22; color: white; border: none; padding: 6px 14px; 
+            border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; 
+        }
+        .admin-btn:hover { background: #d35400; }
+        
+        .undo-btn {
+            background: #27ae60; color: white; border: none; padding: 6px 14px;
+            border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;
+            display: none; animation: popIn 0.3s ease; vertical-align: middle;
+        }
+        .undo-btn:hover { background: #219653; }
+
+        .game-container { display: flex; flex: 1; gap: 12px; margin-top: 10px; min-height: 0; }
+        .panel { background: rgba(31, 40, 51, 0.95); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; min-height: 0; transition: background 0.5s; }
+        .panel-title { font-size: 14px; font-weight: bold; color: var(--text-bright); padding-bottom: 6px; margin-bottom: 10px; border-bottom: 2px solid var(--border-color); }
+        .side-panel { width: 300px; flex-shrink: 0; gap: 15px; overflow-y: auto; display: flex; flex-direction: column; }
+        .main-panel { flex: 1; border-color: rgba(69, 243, 255, 0.3); }
+        
+        .inventory-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+        .item-tag { background: #2c3e50; color: #ecf0f1; border: 1px solid #34495e; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        
+        .heroine-box { background: rgba(255, 64, 129, 0.05); border: 1px solid rgba(255, 64, 129, 0.2); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+        .heroine-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; color: #ff75a0; }
+        .heroine-bar-bg { background: #34495e; height: 6px; border-radius: 3px; margin-top: 5px; overflow: hidden; }
+        .heroine-bar-fill { background: linear-gradient(90deg, #ff75a0, #ff4081); height: 100%; width: 0%; transition: width 0.5s ease; }
+        .status-waifu { color: #f1c40f; font-size: 11px; font-weight: bold; animation: popIn 0.3s ease; }
+        .status-hate { color: #e74c3c; font-size: 11px; font-weight: bold; animation: popIn 0.3s ease; }
+
+        .log-area { flex: 1; background: #0b0c10; border: 1px solid #1a222d; border-radius: 6px; padding: 15px; overflow-y: auto; margin-bottom: 12px; scroll-behavior: smooth; }
+        .story-block { line-height: 1.7; font-size: 14.5px; color: #e0e6ed; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px dashed #2f3e46; }
+        .story-block p { margin-bottom: 10px; min-height: 1.5em; }
+        .story-block_title { color: var(--accent-gold); font-weight: bold; margin-bottom: 5px; font-size: 16px; border-left: 3px solid var(--accent-gold); padding-left: 8px; }
+        
+        .typing-cursor::after {
+            content: " ▍";
+            animation: blink 1s step-end infinite;
+            color: var(--accent-gold);
+            text-shadow: 0 0 5px var(--accent-gold);
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .choice-box { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; min-height: 40px; }
+        .choice-btn { background: #1f2833; color: var(--text-bright); border: 1px solid var(--accent-cyan); padding: 11px 15px; border-radius: 6px; cursor: pointer; font-size: 13.5px; font-weight: bold; transition: all 0.2s ease; text-align: left; }
+        .choice-btn:hover { background: var(--accent-cyan); color: #0b0c10; transform: translateX(4px); }
+        
+        .choice-btn.locked { background: #11141a; color: #555; border: 1px dashed #444; cursor: not-allowed; transform: none; }
+        .choice-btn.locked:hover { background: #11141a; color: #e74c3c; border-color: #e74c3c; }
+
+        .sys-alert-msg { color: #f39c12; font-weight: bold; font-size: 13px; margin: 5px 0; padding: 6px 10px; background: rgba(243, 156, 18, 0.1); border-left: 3px solid #f39c12; animation: popIn 0.4s ease forwards; }
+        .love-alert-msg { color: #ff4081; font-weight: bold; font-size: 13px; margin: 5px 0; padding: 6px 10px; background: rgba(255, 64, 129, 0.1); border-left: 3px solid #ff4081; line-height: 1.6; animation: popIn 0.4s ease forwards; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #08090c; z-index: 1000; flex-direction: column; }
+        .modal-header { background: #11141a; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); flex-shrink: 0; flex-wrap: wrap; gap: 10px; }
+        .modal-body { display: flex; flex: 1; position: relative; overflow: hidden; background: radial-gradient(circle, #101520 10%, #05070a 90%); }
+        
+        #fate-timeline-view { width: 100%; height: 100%; overflow: auto; position: relative; padding: 40px; -webkit-overflow-scrolling: touch; }
+        .canvas-svg { position: absolute; top: 0; left: 0; width: 50000px; height: 30000px; pointer-events: none; z-index: 1; }
+        
+        .node-wrapper { position: absolute; width: 230px; height: 75px; z-index: 5; touch-action: none; }
+        .fate-node-card { background: rgba(25, 33, 44, 0.95); border: 1px solid #3d4d5e; border-radius: 6px; width: 100%; height: 100%; padding: 10px; cursor: grab; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: border-color 0.2s, background-color 0.2s; user-select: none; position: relative; }
+        .fate-node-card:active { cursor: grabbing; border-color: var(--accent-cyan); }
+        .fate-node-card.active-play { border-color: var(--accent-gold); background: rgba(36, 45, 30, 0.95); }
+        .fate-node-card.selected-trace { border-color: #ffaa00; box-shadow: 0 0 12px rgba(255, 170, 0, 0.6); background: rgba(45, 38, 25, 0.95); }
+        .node-card-title { font-size: 13px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; margin-top: 2px; }
+        .node-card-preview { font-size: 11px; color: #8892b0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; margin-top: 4px; }
+        
+        .node-delete-x { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; background: #e74c3c; color: white; border-radius: 50%; border: 2px solid #fff; font-size: 11px; font-weight: bold; text-align: center; line-height: 16px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: none; z-index: 15; transition: transform 0.1s; }
+        .node-delete-x:hover { background: #c0392b; transform: scale(1.15); }
+        .node-wrapper:hover .node-delete-x { display: block; }
+
+        .expand-indicator { position: absolute; right: -6px; top: 32px; width: 12px; height: 12px; background: var(--accent-pink); border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 6px var(--accent-pink); display: none; pointer-events: none; z-index: 12; }
+        .node-wrapper.has-children-hidden .expand-indicator { display: block; }
+
+        .quick-adder { position: absolute; display: none; pointer-events: auto; z-index: 10; }
+        .node-wrapper:hover .quick-adder { display: block; }
+        .dash-preview-box { position: absolute; border: 2px dashed rgba(69, 243, 255, 0.35); border-radius: 6px; background: rgba(69, 243, 255, 0.02); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: rgba(69, 243, 255, 0.6); font-size: 12px; font-weight: bold; width: 230px; height: 75px; text-align: center; line-height: 1.3; padding: 5px; }
+        .dash-preview-box:hover { border-color: var(--accent-cyan); background: rgba(69, 243, 255, 0.1); color: white; }
+        .adder-right { top: 0; left: 230px; width: 290px; height: 75px; }
+        .adder-right .dash-preview-box { right: 0; top: 0; }
+        .adder-down { top: 75px; left: 0; width: 230px; height: 125px; }
+        .adder-down .dash-preview-box { bottom: 0; left: 0; border-color: rgba(255, 64, 129, 0.35); color: rgba(255, 64, 129, 0.6); }
+        .adder-down .dash-preview-box:hover { border-color: var(--accent-pink); background: rgba(255, 64, 129, 0.1); }
+        
+        .admin-identity-bar { background: #1a212b; border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 6px; display: flex; gap: 15px; align-items: center; font-size: 13px; color: #fff; width: 100%; margin-top: 5px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+        .identity-input { background: #0b0c10; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px; color: white; font-size: 13px; width: 110px; }
+
+        .editor-side-panel { position: absolute; right: -500px; top: 0; width: 480px; height: 100%; background: #151a22; border-left: 2px solid var(--accent-gold); z-index: 100; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: -5px 0 25px rgba(0,0,0,0.8); transition: right 0.25s ease-out; overflow-y: auto; }
+        .editor-side-panel.open { right: 0; }
+        .editor-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 8px; }
+        .close-panel-btn { background: none; border: none; color: #888; font-size: 20px; cursor: pointer; font-weight: bold; }
+        .close-panel-btn:hover { color: var(--accent-pink); }
+
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-size: 13px; color: var(--accent-gold); font-weight: bold; }
+        .form-group input, .form-group textarea, .form-group select { background: #0b0c10; border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; color: white; font-size: 14px; }
+        
+        .writer-power-box { background: rgba(22, 33, 62, 0.8); border: 1px solid #2e4057; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .source-tracker-box { background: #1a1522; border: 1px solid #5b2c6f; border-radius: 6px; padding: 8px; font-size: 12px; }
+        .source-link-btn { color: var(--accent-cyan); text-decoration: underline; cursor: pointer; background: none; border: none; font-size: 12px; }
+
+        .visual-choices-container { display: flex; flex-direction: column; gap: 10px; border: 1px solid #2c3e50; padding: 10px; border-radius: 6px; background: #0f1319; }
+
+        /* 🌟 修正：確保每一個選項列容器不會超出右側邊框 */
+        .choice-row-item { 
+            display: flex; 
+            align-items: center; /* 改為置中對齊，讓刪除按鈕與輸入框對齊 */
+            gap: 8px; 
+            background: #1a212b; 
+            padding: 8px; 
+            border-radius: 4px; 
+            border-left: 3px solid var(--accent-cyan); 
+            width: 100%;        /* 強制填滿父容器 */
+            box-sizing: border-box;
+        }
+
+        /* 🌟 修正：限制輸入框與下拉選單各自強佔 50% 完美平分，並防止被長文字撐開 */
+        .choice-row-item input, 
+        .choice-row-item select { 
+            flex: 1; 
+            width: 50%;        /* 強制左右寬度平分，各佔一半 */
+            min-width: 0;      /* 關鍵核心：防止裡面的長字撐爆選單本身 */
+            background: #0b0c10; 
+            border: 1px solid var(--border-color); 
+            border-radius: 4px; 
+            padding: 6px; 
+            color: white; 
+            font-size: 13px; 
+            box-sizing: border-box;
+        }
+        
+        .btn-save { background: #2ecc71; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px; letter-spacing: 1px; }
+        
+        .btn-reset-node { background: #7f8c8d; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; margin-top: -5px; text-align: center; }
+        .btn-reset-node:hover { background: #95a5a6; }
+
+        ::-webkit-scrollbar {width: 0px; height: 0px; background: transparent;}
+        html, body, .your-canvas-container-class {scrollbar-width: none; -ms-overflow-style: none; overflow: auto; }
+        .right-editor-panel {width: 25vw; min-width: 320px; max-width: 450px; height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; -ms-overflow-style: none;  scrollbar-width: none;}
+        .right-editor-panel::-webkit-scrollbar { width: 0px; height: 0px;}
+
+        /* ================= 🧧 全新古風左右展開捲軸樣式 ================= */
+        #scroll-intro-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background-color: #1a120b;  /* 更深的古舊底色 */
+            z-index: 99999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            transition: opacity 1s ease;
+        }
+
+        /* 捲軸主體容器 */
+        .scroll-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 520px; 
+            width: 70px;
+            transition: width 1.8s cubic-bezier(0.25, 1, 0.5, 1);
+            overflow: visible;  /* 加上這行，讓軸頭不被切掉 */
+        }
+
+        /* 展開後的寬度 */
+        .scroll-container.open {
+            width: 800px; 
+        }
+
+        /* 左右實體畫軸 — 做舊質感 */
+        .scroll-roller {
+            position: absolute;
+            width: 48px;
+            height: 108%;
+            background: linear-gradient(145deg, #3a2416, #1f1208, #2c1a0e);
+            border-radius: 30px 8px 30px 8px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8), inset 2px 2px 5px rgba(255,215,150,0.15), inset -3px -3px 8px rgba(0,0,0,0.6);
+            z-index: 3;
+            transition: left 1.8s cubic-bezier(0.25, 1, 0.5, 1), right 1.8s cubic-bezier(0.25, 1, 0.5, 1);
+            border-left: 1px solid #5c3e24;
+            border-right: 2px solid #1e1108;
+            overflow: visible;
+        }
+
+        /* 左畫軸靠左，右畫軸靠右 — 這是關鍵 */
+        .scroll-roller.left {
+            left: -8px;
+        }
+
+        .scroll-roller.right {
+            right: -8px;
+        }
+
+        /* 畫軸上的銅環裝飾（做舊金屬感）- 上環 */
+        .scroll-roller::before {
+            content: "";
+            position: absolute;
+            top: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 34px;
+            height: 34px;
+            background: radial-gradient(ellipse at 30% 35%, #7a6a4a, #3a2e1a, #2a1e0c);
+            border-radius: 50%;
+            box-shadow: inset 0 1px 2px rgba(255,215,140,0.3), 0 2px 5px rgba(0,0,0,0.5);
+            border: 1px solid #9b7a4a;
+            z-index: 5;
+        }
+
+        /* 畫軸上的銅環裝飾 - 下環 */
+        .scroll-roller::after {
+            content: "";
+            position: absolute;
+            bottom: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 34px;
+            height: 34px;
+            background: radial-gradient(ellipse at 30% 35%, #7a6a4a, #3a2e1a, #2a1e0c);
+            border-radius: 50%;
+            box-shadow: inset 0 1px 2px rgba(255,215,140,0.3), 0 2px 5px rgba(0,0,0,0.5);
+            border: 1px solid #9b7a4a;
+            z-index: 5;
+        }
+
+        /* 木紋裂痕效果 */
+        .scroll-roller .roller-crack {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(90deg, 
+                transparent 0px, transparent 12px,
+                rgba(0,0,0,0.1) 12px, rgba(0,0,0,0.1) 14px,
+                transparent 14px, transparent 28px,
+                rgba(80,40,10,0.15) 28px, rgba(80,40,10,0.15) 30px);
+            pointer-events: none;
+        }
+
+        /* 左畫軸特殊造型 */
+        .scroll-roller.left {
+            border-top-left-radius: 14px;
+            border-bottom-left-radius: 14px;
+        }
+
+        /* 右畫軸特殊造型 */
+        .scroll-roller.right {
+            border-top-right-radius: 14px;
+            border-bottom-right-radius: 14px;
+        }
+
+        /* 軸頭裝飾（上下突出的木柄） */
+        .scroll-roller .roller-top,
+        .scroll-roller .roller-bottom {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 62px;
+            height: 16px;
+            background: linear-gradient(145deg, #5a4230, #2a1a0e);
+            border-radius: 20px;
+            box-shadow: inset 0 1px 2px rgba(255,200,120,0.2), 0 2px 4px black;
+            z-index: 6;
+        }
+
+        .scroll-roller .roller-top {
+            top: -10px;
+        }
+
+        .scroll-roller .roller-bottom {
+            bottom: -10px;
+        }
+
+        /* 捲軸展開內部的宣紙面 — 陳舊泛黃、破損感 */
+        .scroll-content-paper {
+            position: absolute;
+            top: 3%;
+            left: 24px;
+            right: 24px;
+            height: 94%;
+            background: #dac292;  /* 舊紙基底色 */
+            background-image: radial-gradient(circle at 20% 35%, rgba(160,120,80,0.08) 2%, transparent 2.5%),
+                            repeating-linear-gradient(45deg, rgba(100,60,20,0.05) 0px, rgba(100,60,20,0.05) 2px, transparent 2px, transparent 8px);
+            border-top: 2px solid #8b6946;
+            border-bottom: 2px solid #5a3e22;
+            box-shadow: inset 0 0 50px rgba(80,50,20,0.5), 0 10px 25px rgba(0,0,0,0.3);
+            z-index: 2;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'KaiTi', '華文楷書', serif;
+        }
+        .scroll-container.open .scroll-content-paper {
+            opacity: 1;
+        }
+
+        /* 捲軸邊緣破損效果 */
+        .scroll-content-paper::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: repeating-linear-gradient(90deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 3px, transparent 3px, transparent 12px);
+        }
+
+        /* 古風字跡 — 墨色暈染感 */
+        .scroll-text-wrapper {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            z-index: 4;
+            transition: opacity 1.2s ease, transform 1.2s ease;
+        }
+        .scroll-text-line {
+            font-family: 'KaiTi', 'Kaiti TC', '華文楷書', serif;
+            font-size: 2.8rem;
+            color: #3e2a1f;
+            letter-spacing: 10px;
+            font-weight: normal;
+            text-shadow: 2px 2px 3px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: scale(0.92);
+            transition: opacity 1.5s ease, transform 1.5s ease;
+        }
+        .scroll-text-line.show {
+            opacity: 0.88;
+            transform: scale(1);
+        }
+        .scroll-text-line#line2 {
+            font-size: 1.5rem;
+            letter-spacing: 6px;
+            color: #5c4433;
+        }
+        .scroll-text-wrapper.fade-out {
+            opacity: 0;
+            transform: scale(1.02);
+        }
+
+        /* 創角面板（古卷手札風格） */
+        .scroll-creation-box {
+            position: absolute;
+            width: 80%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1.2s ease, transform 1.2s ease;
+            transform: scale(0.96);
+            z-index: 5;
+            background: rgba(235,215,175,0.3);
+            padding: 20px 30px;
+            border-radius: 12px;
+            backdrop-filter: blur(2px);
+        }
+        .scroll-creation-box.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+        .scroll-creation-box h2 {
+            color: #3b2a1e;
+            text-align: center;
+            margin-bottom: 28px;
+            font-family: 'KaiTi', serif;
+            font-size: 26px;
+            letter-spacing: 6px;
+            text-shadow: 1px 1px 0 #c9aa7b;
+        }
+        .scroll-creation-box .scroll-form-group {
+            margin-bottom: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .scroll-creation-box label {
+            font-size: 15px;
+            color: #4f351f;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .scroll-creation-box input, .scroll-creation-box select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #b48b5a;
+            background: rgba(245, 235, 210, 0.95);
+            color: #2c1d0f;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'KaiTi', serif;
+            font-weight: normal;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1), 0 1px 0 rgba(255,255,200,0.6);
+        }
+        .scroll-creation-box .btn-scroll-start {
+            background: linear-gradient(145deg, #7a4a28, #543118);
+            color: #fef0da;
+            border: 1px solid #dba459;
+            padding: 12px;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 40px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,215,140,0.5);
+            transition: all 0.25s;
+            margin-top: 14px;
+            letter-spacing: 4px;
+            font-family: 'KaiTi', serif;
+        }
+        .scroll-creation-box .btn-scroll-start:hover {
+            background: linear-gradient(145deg, #8f5a36, #633b1c);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            color: #fff3e0;
+        }
+
+        /* 點綴：紙張邊角泛黃斑 */
+        .scroll-content-paper::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at 30% 70%, rgba(100,60,20,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        @keyframes popIn { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+    <body>
+        <div id="scroll-intro-overlay">
+        <div class="scroll-container" id="main-scroll-container">
+            <!-- 左畫軸 (帶仿古銅環裝飾) -->
+            <div class="scroll-roller left">
+                <div class="roller-top"></div>
+                <div class="roller-crack"></div>
+                <div class="roller-bottom"></div>
+            </div>
+            
+            <div class="scroll-content-paper">
+                <!-- 登入選擇畫面 -->
+                <div id="login-overlay" class="login-overlay">
+                    <div class="login-container">
+                        <div class="login-title">九天塵緣錄</div>
+                        <div class="login-subtitle">紅塵萬丈 · 仙凡交織</div>
+                        
+                        <div class="login-buttons">
+                            <button id="google-login-btn" class="google-login-btn">
+                                <span style="font-size:18px;">G</span> 使用 Google 帳號登入
+                            </button>
+                            <button id="guest-login-btn" class="guest-login-btn">
+                                🎭 訪客模式 (不保存進度)
+                            </button>
+                        </div>
+                        
+                        <div id="user-info-area" style="display:none;">
+                            <div class="user-info-bar">
+                                <span>👤 <span id="user-name-display"></span></span>
+                                <button id="logout-btn" class="logout-btn">登出</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 存檔槽選擇區 -->
+                        <div id="slot-selection-area" class="slot-selection">
+                            <div class="slot-title">📀 選擇命途存檔槽</div>
+                            <div class="slots-grid" id="slots-grid">
+                                <!-- 動態產生 10 個存檔槽 -->
+                            </div>
+                        </div>
+                        
+                        <!-- 修士尊號輸入區 -->
+                        <div id="name-input-area" class="name-input-area">
+                            <input type="text" id="player-name-input" placeholder="請輸入您的修士尊號..." maxlength="20" autocomplete="off">
+                            <br>
+                            <button id="enter-game-btn" class="enter-game-btn">✧ 踏入塵世 ✧</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="scroll-roller right">
+                <div class="roller-top"></div>
+                <div class="roller-crack"></div>
+                <div class="roller-bottom"></div>
+            </div>
+        </div>
+    </div>
+        <!-- 自訂古風提示彈窗 -->
+    <div id="custom-toast" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100000; display: none; justify-content: center; align-items: center;">
+        <div style="background: #2c2418; border: 3px solid #b87c4f; border-radius: 16px; padding: 30px 40px; max-width: 400px; text-align: center; box-shadow: 0 10px 30px black; font-family: 'KaiTi', serif;">
+            <p id="custom-toast-msg" style="color: #f3deba; font-size: 18px; margin-bottom: 25px;">位面提示訊息</p>
+            <button id="custom-toast-close" style="background: #7a4a28; color: #fef0da; border: none; padding: 8px 30px; border-radius: 30px; font-size: 16px; cursor: pointer; font-family: 'KaiTi', serif;">確定</button>
+        </div>
+    </div>
+
+    <header>
+        <h1>《九天塵緣錄》· 創世神空間</h1>
+        <div>
+            <button class="admin-btn" onclick="openAdminTimeline()">打開「劇本命運線」編輯後台</button>
+        </div>
+    </header>
+    
+    <div class="game-container">
+        <div class="panel side-panel">
+            <div>
+                <div class="panel-title">您的狀態</div>
+                <div style="font-size: 13px; line-height: 1.8;">
+                    <p>姓名：<span id="display-name" style="color:var(--accent-gold); font-weight:bold;">""</span></p>
+                    <p>當前時空：<span id="display-time-line" style="color:var(--time-color); font-weight:bold;">【古代】修仙界</span></p>
+                    <p>境界/職位：<span class="cyan-text" id="display-realm">【凡俗】武夫</span></p>
+                </div>
+            </div>
+            <!-- 當前位置區塊 -->
+            <div style="margin-top: 10px;">
+                <div class="panel-title" style="margin-bottom: 5px;">地圖</div>
+                <div id="player-location" border-radius: 6px; padding: 8px; font-size: 13px; color: var(--accent-cyan);">
+                    十萬界域
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column;">
+                <div class="panel-title" style="margin-bottom: 5px;">儲物袋 (背包物品)</div>
+                <div class="inventory-list" id="player-inventory">
+                    <span style="color:#666; font-size:12px; font-style:italic;">空無一物...</span>
+                </div>
+            </div>
+            <!-- 功法/心法區塊 -->
+            <div style="margin-top: 10px;">
+                <div class="panel-title" style="margin-bottom: 5px;">功法／心法</div>
+                <div id="player-skills" border-radius: 6px; padding: 8px; max-height: 120px; overflow-y: auto;">
+                    <span style="color:#666; font-size:12px; font-style:italic;">尚未習得任何功法...</span>
+                </div>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; overflow-y: auto;">
+                <div class="panel-title" style="margin-bottom: 5px;">紅顏情緣</div>
+                <div id="player-heroines" style="padding-right:4px;">
+                    <span style="color:#666; font-size:12px; font-style:italic;">暫無紅顏因果...</span>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; padding-top: 15px; border-top: 1px dashed var(--border-color);">
+                <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">⚙️ 系統設定：打字機速度</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 11px; color: #888;">慢</span>
+                    <input type="range" id="text-speed-slider" min="0" max="100" value="70" style="flex: 1; cursor: pointer;">
+                    <span style="font-size: 11px; color: #888;">快</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel main-panel">
+            <div class="panel-title">遊戲故事現況預覽</div>
+            <div class="log-area" id="game-log" style="cursor: pointer;" title="點擊任意處可瞬間顯示全部文字"></div>
+            <div class="choice-box" id="ui-choices"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="admin-timeline-modal">
+        <div class="modal-header">
+            <div style="display:flex; align-items:center; width:100%; justify-content:space-between;">
+                <div>
+                    <h2 style="color:var(--accent-cyan); display:inline-block; margin-right:15px; font-size:20px;">劇本編輯大畫布</h2>
+                    <button id="global-undo-btn" class="undo-btn" style="margin-right: 10px;" onclick="executeUndoDelete()">復原上一次刪除</button>
+                    <button id="global-undo-btn" class="undo-btn" style="margin-right: 10px;" onclick="executeUndoDelete()">復原上一次刪除</button>
+                    <button class="admin-btn" style="background:#27ae60; margin-right: 10px;" onclick="autoAlignTreeLayout()">✨ 一鍵主線往右排齊</button> 
+                    <button class="admin-btn" style="background:#8e44ad; margin-right: 10px;" onclick="forceReloadFromJS()">強制同步 plots.js</button>
+                    <button class="admin-btn" style="background:#2980b9;" onclick="exportJSON()">導出 plots.js 檔案</button>
+                </div>
+                <button class="admin-btn" style="background:#c039b6;" onclick="closeAdminTimeline()">❌ 返回遊戲測試</button>
+            </div>
+            
+            <div class="admin-identity-bar">
+                <div>🔮 <b>後台即時身分調節：</b></div>
+                <div>姓名：<input type="text" id="admin-player-name" class="identity-input" oninput="syncIdentityFromAdmin()"></div>
+                <div>時空：<select id="admin-player-time" class="identity-input" style="width:100px; cursor:pointer;" onchange="syncIdentityFromAdmin()"><option value="ancient">【古代】</option><option value="modern">【現代】</option></select></div>
+                <div>境界：<input type="text" id="admin-player-realm" class="identity-input" style="width:130px;" oninput="syncIdentityFromAdmin()"></div>
+                <div style="margin-left: auto;">
+                    <button class="admin-btn" style="background:#d35400; padding:5px 12px; font-size:12px;" onclick="jumpToRandomStartNode()">🎲 隨機核心主線跳轉</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal-body">
+            <div id="fate-timeline-view">
+                <svg class="canvas-svg" id="fate-svg-canvas"></svg>
+            </div>
+
+            <div class="editor-side-panel" id="editor-panel">
+                <div class="editor-header">
+                    <h3 style="color:var(--accent-gold);">編輯當前劇情</h3>
+                    <button class="close-panel-btn" onclick="closeEditorPanel()">❌</button>
+                </div>
+                
+                <button class="btn-reset-node" onclick="resetEditorToDatabase()">放棄目前編輯 · 恢復成原狀</button>
+
+                <div class="source-tracker-box">
+                    <span style="color:var(--accent-pink); font-weight:bold;">那些劇情可連到這裡：</span>
+                    <div id="node-source-list" style="margin-top:5px; max-height: 50px; overflow-y: auto; color:#aaa;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>標題</label>
+                    <input type="text" id="edit-title">
+                </div>
+
+                <div class="form-group">
+                    <label>劇本內文</label>
+                    <textarea id="edit-text" rows="5" placeholder="直接打字與換行即可..."></textarea>
+                </div>
+
+                <div class="writer-power-box">
+                    <span style="color:var(--accent-cyan); font-weight:bold; font-size:13px;">編輯面板</span>
+                    
+                    <div class="form-group">
+                        <label style="color:var(--time-color); font-size:12px;">時空穿越設定：</label>
+                        <select id="edit-update-timeline" style="padding:4px; font-size:13px; background:#000;">
+                            <option value="">-- 保持當前時空--</option>
+                            <option value="ancient">穿越至【古代】</option>
+                            <option value="modern">穿越至【現代】</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="border-top: 1px dashed #2c3e50; padding-top: 5px;">
+                        <label style="color:#f1c40f; font-size:12px;">變更當前位置為：</label>
+                        <input type="text" id="edit-update-location" placeholder="例如：崑崙仙山 · 玉虛宮" style="padding:5px; font-size:13px;">
+                    </div>
+
+
+                    <div class="form-group">
+                        <label style="color:#aaa; font-size:12px;">變更境界/職位為：</label>
+                        <input type="text" id="edit-update-realm" placeholder="例如：煉氣五層" style="padding:5px; font-size:13px;">
+                    </div>
+
+                    <div class="form-group" style="border-top: 1px dashed #2c3e50; padding-top: 5px;">
+                        <label style="color:#aaa; font-size:12px;">背包物品變動：</label>
+                        <div id="visual-items-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+                        <button class="admin-btn" style="background:#2c3e50; font-size:11px; margin-top:5px; padding:4px;" onclick="addNewItemRow('get', '')">➕ 新增物品變動</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="color:#ff75a0; font-size:12px;">功法變動：</label>
+                        <div id="visual-skills-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+                        <button class="admin-btn" style="background:#2c3e50; font-size:11px; margin-top:5px; padding:4px;" onclick="addNewSkillRow()">➕ 新增功法</button>
+                    </div>
+
+                    <div class="form-group" style="border-top: 1px dashed #2c3e50; padding-top: 5px;">
+                        <label style="color:#ff75a0; font-size:12px;">紅顏好感度與關係變動：</label>
+                        <div id="visual-heroines-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                        <button class="admin-btn" style="background:#5b2c6f; font-size:11px; margin-top:5px; padding:4px;" onclick="addNewHeroineRow('', '', 0, '相識')">➕ 新增受影響的紅顏女主</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>劇情選項文字</label>
+                    <div class="visual-choices-container" id="visual-choices-list"></div>
+                    <button class="admin-btn" style="background:#34495e; font-size:12px; margin-top:5px;" onclick="addNewChoiceRow('', '', '')">➕ 手動追加獨立按鈕</button>
+                </div>
+
+                <button class="btn-save" onclick="saveNodeData()">儲存並即時更新劇本</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let storyDatabase = {};
+        let currentPlayingKey = "0";
+        let selectedEditingKey = null;
+        let customNodePositions = { "0": { x: 80, y: 300 } };
+        let playerLocation = "";  // 當前位置
+        let playerSkills = [];  // 功法列表
+        let activeFocusedRootKey = "0"; 
+        let currentTimeLine = "ancient"; 
+        let playerInventory = [];
+        let playerHeroines = {}; 
+
+        // ==========================================
+        // 🔐 登入系統與存檔槽管理
+        // ==========================================
+
+        let currentUser = null;           // 當前用戶 { id, name, type }
+        let currentSlot = null;           // 當前選擇的存檔槽 (1-10)
+        let isGuestMode = false;          // 是否為訪客模式
+        let slotData = {};                // 存檔槽資料
+
+        // 儲存前綴
+        function getStoragePrefix() {
+            if (isGuestMode) return "guest_";
+            if (currentUser) return `user_${currentUser.id}_`;
+            return "";
+        }
+
+        // 載入所有存檔槽資訊
+        function loadSlotsData() {
+            const prefix = getStoragePrefix();
+            const slots = {};
+            for (let i = 1; i <= 10; i++) {
+                const saveKey = `${prefix}slot_${i}_state`;
+                const saved = localStorage.getItem(saveKey);
+                if (saved) {
+                    try {
+                        const data = JSON.parse(saved);
+                        slots[i] = {
+                            hasSave: true,
+                            playerName: data.playerName || "未知修士",
+                            realm: data.realm || "凡俗",
+                            location: data.location || "十萬界域",
+                            lastPlayTime: data.lastPlayTime || "未知"
+                        };
+                    } catch(e) {
+                        slots[i] = { hasSave: false };
+                    }
+                } else {
+                    slots[i] = { hasSave: false };
+                }
+            }
+            return slots;
+        }
+
+        // 渲染存檔槽界面
+        function renderSlots() {
+            const grid = document.getElementById("slots-grid");
+            if (!grid) return;
+            
+            slotData = loadSlotsData();
+            grid.innerHTML = "";
+            
+            for (let i = 1; i <= 10; i++) {
+                const slot = slotData[i];
+                const isOccupied = slot.hasSave;
+                
+                const card = document.createElement("div");
+                card.className = `slot-card ${currentSlot === i ? 'selected' : ''} ${isOccupied ? 'occupied' : ''}`;
+                card.onclick = () => selectSlot(i);
+                
+                card.innerHTML = `
+                    <div class="slot-number">存檔槽 ${i}</div>
+                    ${isOccupied ? `
+                        <div class="slot-info">📖 ${slot.playerName}</div>
+                        <div class="slot-info">⚡ ${slot.realm}</div>
+                        <div class="slot-info">📍 ${slot.location}</div>
+                        <div class="slot-status-occupied">✓ 已有進度</div>
+                    ` : `
+                        <div class="slot-status-empty">⚡ 空的命途槽位</div>
+                    `}
+                `;
+                grid.appendChild(card);
+            }
+        }
+
+        // 選擇存檔槽
+        function selectSlot(slotNumber) {
+            if (!currentUser && !isGuestMode) {
+                showCustomMessage("請先登入或使用訪客模式！");
+                return;
+            }
+            
+            currentSlot = slotNumber;
+            renderSlots();
+            
+            // 顯示名稱輸入區
+            const nameArea = document.getElementById("name-input-area");
+            const nameInput = document.getElementById("player-name-input");
+            
+            // 檢查該存檔槽是否有存檔
+            const prefix = getStoragePrefix();
+            const saveKey = `${prefix}slot_${slotNumber}_state`;
+            const saved = localStorage.getItem(saveKey);
+            
+            if (saved) {
+                // 有存檔：載入資訊，自動填入名字
+                try {
+                    const data = JSON.parse(saved);
+                    nameInput.value = data.playerName || "";
+                    nameInput.placeholder = "可修改修士尊號";
+                    showCustomMessage(`📀 載入存檔槽 ${slotNumber} 的進度：${data.playerName}`);
+                } catch(e) {
+                    nameInput.value = "";
+                    nameInput.placeholder = "請輸入您的修士尊號...";
+                }
+            } else {
+                // 空槽位
+                nameInput.value = "";
+                nameInput.placeholder = "請輸入您的修士尊號...";
+            }
+            
+            nameArea.style.display = "block";
+        }
+
+        // 儲存遊戲狀態到當前存檔槽
+        function saveToCurrentSlot() {
+            if (!currentSlot || (!currentUser && !isGuestMode)) return;
+            
+            const prefix = getStoragePrefix();
+            const saveKey = `${prefix}slot_${currentSlot}_state`;
+            
+            const saveData = {
+                playerName: document.getElementById("display-name").innerText,
+                inventory: playerInventory,
+                heroines: playerHeroines,
+                location: playerLocation,
+                skills: playerSkills,
+                timeline: currentTimeLine,
+                realm: document.getElementById("display-realm").innerText,
+                currentNode: currentPlayingKey,
+                lastPlayTime: new Date().toLocaleString()
+            };
+            
+            localStorage.setItem(saveKey, JSON.stringify(saveData));
+            console.log(`💾 已儲存到存檔槽 ${currentSlot}`);
+            
+            // 更新介面
+            renderSlots();
+        }
+
+        // 從當前存檔槽載入
+        function loadFromCurrentSlot() {
+            if (!currentSlot || (!currentUser && !isGuestMode)) return false;
+            
+            const prefix = getStoragePrefix();
+            const saveKey = `${prefix}slot_${currentSlot}_state`;
+            const saved = localStorage.getItem(saveKey);
+            
+            if (!saved) return false;
+            
+            try {
+                const data = JSON.parse(saved);
+                playerInventory = data.inventory || [];
+                playerHeroines = data.heroines || {};
+                playerLocation = data.location || "十萬界域";
+                playerSkills = data.skills || [];
+                currentTimeLine = data.timeline || "ancient";
+                currentPlayingKey = data.currentNode || "0";
+                
+                document.getElementById("display-realm").innerText = data.realm || "【凡俗】武夫";
+                document.getElementById("display-name").innerText = data.playerName || "";
+                
+                updateInventoryUI();
+                updateHeroinesUI();
+                updateLocationUI();
+                updateSkillsUI();
+                applyTimeLineEffects(currentTimeLine);
+                
+                return true;
+            } catch(e) {
+                return false;
+            }
+        }
+
+        // 進入遊戲
+        function enterGame() {
+            const nameInput = document.getElementById("player-name-input");
+            const playerName = nameInput.value.trim();
+            
+            if (!playerName) {
+                showCustomMessage("請輸入修士尊號！");
+                nameInput.style.borderColor = "#e74c3c";
+                nameInput.focus();
+                return;
+            }
+            
+            if (!currentSlot) {
+                showCustomMessage("請先選擇一個存檔槽！");
+                return;
+            }
+            
+            // 嘗試載入存檔
+            const hasSave = loadFromCurrentSlot();
+            
+            if (!hasSave) {
+                // 全新開始
+                playerInventory = [];
+                playerHeroines = {};
+                playerLocation = "十萬界域";
+                playerSkills = [];
+                currentTimeLine = "ancient";
+                currentPlayingKey = "0";
+                
+                document.getElementById("display-realm").innerText = "【凡俗】武夫";
+                document.getElementById("display-name").innerText = playerName;
+                
+                updateInventoryUI();
+                updateHeroinesUI();
+                updateLocationUI();
+                updateSkillsUI();
+                applyTimeLineEffects(currentTimeLine);
+            } else {
+                // 有存檔，但可能想換名字？尊重存檔中的名字
+                if (document.getElementById("display-name").innerText !== playerName) {
+                    // 如果想改名，更新
+                    document.getElementById("display-name").innerText = playerName;
+                }
+                showCustomMessage(`歡迎回來，${playerName}！`);
+            }
+            
+            // 儲存當前選擇的存檔槽資訊
+            saveToCurrentSlot();
+            
+            // 關閉登入畫面，顯示遊戲
+            const loginOverlay = document.getElementById("login-overlay");
+            loginOverlay.style.opacity = "0";
+            setTimeout(() => {
+                loginOverlay.style.display = "none";
+                
+                // 載入遊戲
+                if (currentPlayingKey && currentPlayingKey !== "0") {
+                    loadNode(currentPlayingKey);
+                } else {
+                    // 顯示起點選擇（如果沒有進行中的遊戲）
+                    showStartNodeSelection();
+                }
+            }, 500);
+        }
+
+        // Google 登入初始化
+        function initGoogleLogin() {
+            // 使用 Google Identity Services
+            google.accounts.id.initialize({
+                client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com", // 需要替換為真實的 Client ID
+                callback: handleGoogleCredential
+            });
+            
+            document.getElementById("google-login-btn").onclick = () => {
+                google.accounts.id.prompt(); // 顯示登入彈窗
+            };
+        }
+
+        function handleGoogleCredential(response) {
+            // 解析 Google 回傳的資料
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            currentUser = {
+                id: payload.sub,
+                name: payload.name,
+                email: payload.email,
+                picture: payload.picture,
+                type: "google"
+            };
+            isGuestMode = false;
+            
+            document.getElementById("user-name-display").innerText = payload.name;
+            document.getElementById("user-info-area").style.display = "block";
+            
+            // 顯示存檔槽選擇區
+            document.getElementById("slot-selection-area").style.display = "block";
+            renderSlots();
+            
+            showCustomMessage(`歡迎，${payload.name}！請選擇一個存檔槽開始你的修仙之旅。`);
+        }
+
+        // 訪客模式
+        function initGuestMode() {
+            document.getElementById("guest-login-btn").onclick = () => {
+                const guestId = "guest_" + Date.now();
+                currentUser = {
+                    id: guestId,
+                    name: "訪客",
+                    type: "guest"
+                };
+                isGuestMode = true;
+                
+                document.getElementById("user-name-display").innerText = "訪客模式 (進度不保存)";
+                document.getElementById("user-info-area").style.display = "block";
+                document.getElementById("slot-selection-area").style.display = "block";
+                renderSlots();
+                
+                showCustomMessage("訪客模式：您的遊戲進度將不會被保存，重開網頁後需要重新開始。");
+            };
+        }
+
+        // 登出
+        function logout() {
+            if (confirm("確定要登出嗎？未儲存的進度可能會遺失。")) {
+                currentUser = null;
+                currentSlot = null;
+                isGuestMode = false;
+                
+                document.getElementById("user-info-area").style.display = "none";
+                document.getElementById("slot-selection-area").style.display = "none";
+                document.getElementById("name-input-area").style.display = "none";
+                
+                showCustomMessage("已登出，歡迎下次再來！");
+                
+                // 重置遊戲畫面
+                location.reload();
+            }
+        }
+
+        // 顯示起點選擇（簡化版，直接從第一個節點開始）
+        function showStartNodeSelection() {
+            // 找出所有起點節點
+            const startKeys = Object.keys(storyDatabase).filter(k => {
+                if (k === "0") return true;
+                if (storyDatabase[k].isCustomStart === true) return true;
+                let isReferenced = Object.keys(storyDatabase).some(otherKey => {
+                    return storyDatabase[otherKey].choices && storyDatabase[otherKey].choices.some(c => c.next === k);
+                });
+                return !isReferenced;
+            });
+            
+            if (startKeys.length > 0) {
+                // 自動選擇第一個起點
+                loadNode(startKeys[0]);
+            } else {
+                loadNode("0");
+            }
+        }
+
+        // 修改原本的 playScrollIntroSequence，不再需要原本的開場動畫
+        // 因為現在用登入畫面取代了
+        function playScrollIntroSequence() {
+            // 登入畫面已經處理，這個函數可以留空或移除
+            console.log("使用新登入系統");
+        }
+
+        // 修改 window.onload
+        window.onload = function() {
+            initGame();
+            updateScrollStartNodeSelect();
+            
+            // 初始化登入系統
+            initGoogleLogin();
+            initGuestMode();
+            document.getElementById("logout-btn").onclick = logout;
+            document.getElementById("enter-game-btn").onclick = enterGame;
+            
+            // 預設隱藏遊戲畫面，等登入後再顯示
+            document.querySelector(".game-container").style.opacity = "0";
+            document.querySelector("header").style.opacity = "0";
+            
+            // 登入成功後顯示遊戲
+            function showGame() {
+                document.querySelector(".game-container").style.opacity = "1";
+                document.querySelector("header").style.opacity = "1";
+            }
+            
+            // 暴露給登入成功時呼叫
+            window.showGame = showGame;
+        };
+
+        // 修改 saveNodeData 和 loadNode，自動儲存到當前存檔槽
+        // 在 loadNode 結尾加入自動儲存
+        // 在 saveNodeData 中也加入自動儲存
+
+        function saveBackupToStorage(dbSnapshot, posSnapshot) {
+            let backupObj = { storyDatabase: dbSnapshot, customNodePositions: posSnapshot };
+            localStorage.setItem("my_plots_undo_snapshot", JSON.stringify(backupObj));
+            checkUndoButtonVisibility();
+        }
+
+        function checkUndoButtonVisibility() {
+            let hasBackup = localStorage.getItem("my_plots_undo_snapshot");
+            document.getElementById("global-undo-btn").style.display = hasBackup ? "inline-block" : "none";
+        }
+
+        function executeUndoDelete() {
+            let backupData = localStorage.getItem("my_plots_undo_snapshot");
+            if (!backupData) return;
+            if (confirm("🔄 確定要還原上一次刪除的劇本節點嗎？")) {
+                let parsed = JSON.parse(backupData);
+                storyDatabase = parsed.storyDatabase;
+                customNodePositions = parsed.customNodePositions;
+                localStorage.setItem("my_custom_plots_v7_final", JSON.stringify(storyDatabase));
+                localStorage.setItem("my_plots_positions_v7_final", JSON.stringify(customNodePositions));
+                localStorage.removeItem("my_plots_undo_snapshot");
+                checkUndoButtonVisibility();
+                buildFateTreeCanvas();
+                showCustomMessage("✅ 還原成功！");
+            }
+        }
+
+        function getAllExistingHeroineNames() {
+            let names = new Set([""]);
+            Object.keys(storyDatabase).forEach(k => {
+                let node = storyDatabase[k];
+                if (node.updates) {
+                    if (node.updates.loveName) names.add(node.updates.loveName);
+                    if (node.updates.heroines && Array.isArray(node.updates.heroines)) {
+                        node.updates.heroines.forEach(h => { if(h.name) names.add(h.name); });
+                    }
+                }
+            });
+            return Array.from(names);
+        }
+
+        function updateLocationUI() {
+            const locationDiv = document.getElementById("player-location");
+            if (!locationDiv) return;
+            locationDiv.innerHTML = playerLocation;
+        }
+
+        function updateSkillsUI() {
+            const skillsDiv = document.getElementById("player-skills");
+            if (!skillsDiv) return;
+            
+            if (playerSkills.length === 0) {
+                skillsDiv.innerHTML = `<span style="color:#666; font-size:12px; font-style:italic;">尚未習得任何功法...</span>`;
+                return;
+            }
+            
+            skillsDiv.innerHTML = "";
+            playerSkills.forEach(skill => {
+                skillsDiv.innerHTML += `<div style="background:#1a212b; margin-bottom:6px; padding:6px 8px; border-radius:4px; border-left:3px solid var(--accent-gold); font-size:12px;">📖 ${skill}</div>`;
+            });
+        }
+
+        // 同步並動態更新全新捲軸內的起點選單選項
+        function updateScrollStartNodeSelect() {
+            const select = document.getElementById("scroll-init-start-node");
+            if (!select) return;
+
+            // 🌟 修改這裡的過濾條件
+            let startKeys = Object.keys(storyDatabase).filter(k => {
+                // 1. 初始起點 "0" 永遠保留
+                if (k === "0") return true;
+                
+                // 2. 只要擁有 isCustomStart 標籤，無論有沒有被其他人連到，都強制視為起點
+                if (storyDatabase[k].isCustomStart === true) return true;
+                
+                // 3. 原本的防呆：完全沒人連的孤立節點
+                let isReferenced = Object.keys(storyDatabase).some(otherKey => {
+                    return storyDatabase[otherKey].choices && storyDatabase[otherKey].choices.some(c => c.next === k);
+                });
+                return !isReferenced;
+            });
+
+            // 清空並重新渲染下拉選單
+            select.innerHTML = "";
+            startKeys.forEach(k => {
+                let node = storyDatabase[k];
+                select.innerHTML += `<option value="${k}">[${k}] ${node.title || '未命名起點'}</option>`;
+            });
+        }
+
+        // 全新古風捲軸開場動畫時序控制引擎
+        function playScrollIntroSequence() {
+            const container = document.getElementById('main-scroll-container');
+            const textWrapper = document.getElementById('scroll-intro-text');
+            const l1 = document.getElementById('line1');
+            const l2 = document.getElementById('line2');
+            const creationBox = document.getElementById('scroll-creation-box');
+
+            // 1. 網頁載入 400ms 後，捲軸緩緩向左右「打開」
+            setTimeout(() => {
+                container.classList.add('open');
+                
+                // 2. 打開完成時 (1000ms)，古風字跡由小變大浮現出來
+                setTimeout(() => {
+                    l1.classList.add('show');
+                    setTimeout(() => l2.classList.add('show'), 500);
+                    
+                    // 3. 字跡在宣紙上停留 2.2 秒，隨後整段字跡淡出消失 (Fade out)
+                    setTimeout(() => {
+                        textWrapper.classList.add('fade-out');
+                        
+                        // 4. 字跡完全消失後 (1.2秒後)，創角輸入方框在原地淡入取代
+                        setTimeout(() => {
+                            textWrapper.style.display = 'none';
+                            creationBox.classList.add('show');
+                        }, 1200);
+
+                    }, 2200);
+
+                }, 1000);
+
+            }, 400);
+
+            // 5. 綁定新捲軸內「確認踏入九天」按鈕點擊事件
+            document.getElementById('scroll-confirm-btn').onclick = function() {
+                const nameInput = document.getElementById('scroll-init-name');
+                const nodeSelect = document.getElementById('scroll-init-start-node');
+                
+                const pName = nameInput.value.trim();
+                if (!pName) {
+                    showCustomMessage("位面提示：欲入九天紅塵修仙，怎能不留真名？請先輸入修士尊號！");
+                    nameInput.style.borderColor = "#e74c3c";
+                    nameInput.focus();
+                    return;
+                }
+
+                // 獲取選擇的起點節點 ID
+                const startNodeKey = nodeSelect.value;
+                const selectedNode = storyDatabase[startNodeKey];
+                
+                // 根據選擇的起點初始化時空與境界
+                if (selectedNode && selectedNode.updates) {
+                    if (selectedNode.updates.timeline) {
+                        currentTimeLine = selectedNode.updates.timeline;
+                    } else {
+                        currentTimeLine = "ancient";
+                    }
+                    if (selectedNode.updates.realm) {
+                        document.getElementById("display-realm").innerText = selectedNode.updates.realm;
+                    } else {
+                        document.getElementById("display-realm").innerText = "【凡俗】武夫";
+                    }
+                } else {
+                    currentTimeLine = "ancient";
+                    document.getElementById("display-realm").innerText = "【凡俗】武夫";
+                }
+
+                // 更新左側面版玩家狀態欄的名字
+                document.getElementById("display-name").innerText = pName;
+                
+                // 整個全螢幕捲軸遮罩淡出
+                const overlay = document.getElementById('scroll-intro-overlay');
+                overlay.style.opacity = '0';
+                
+                setTimeout(() => {
+                    overlay.remove(); // 徹底移除動畫層，釋放記憶體
+                    
+                    // 啟動你的遊戲核心初始化
+                    playerInventory = [];
+                    playerLocation = "十萬界域";
+                    playerSkills = [];
+                    playerHeroines = {};
+                    applyTimeLineEffects(currentTimeLine);
+                    updateInventoryUI();
+                    updateHeroinesUI();
+                    updateLocationUI();
+                    updateSkillsUI();
+                    
+                    // 載入玩家選定的起點節點，正式進入遊戲畫面！
+                    loadNode(startNodeKey);
+                }, 1000);
+            };
+        }
+
+        function applyTimeLineEffects(time) {
+            currentTimeLine = time;
+            const body = document.body;
+            if (time === "modern") {
+                body.className = "time-modern";
+                document.getElementById("display-time-line").innerText = "【現代】京都";
+                document.getElementById("display-time-line").style.color = "#3498db";
+            } else {
+                body.className = "time-ancient";
+                document.getElementById("display-time-line").innerText = "【古代】乾坤界";
+                document.getElementById("display-time-line").style.color = "#9b59b6";
+            }
+        }
+
+        function syncIdentityFromAdmin() {
+            const name = document.getElementById("admin-player-name").value.trim() || "未命名";
+            const time = document.getElementById("admin-player-time").value;
+            const realm = document.getElementById("admin-player-realm").value.trim() || "無";
+            
+            document.getElementById("display-name").innerText = name;
+            document.getElementById("display-realm").innerText = realm;
+            applyTimeLineEffects(time);
+        }
+
+        function updateAdminIdentityBarUI() {
+            document.getElementById("admin-player-name").value = document.getElementById("display-name").innerText;
+            document.getElementById("admin-player-time").value = currentTimeLine;
+            document.getElementById("admin-player-realm").value = document.getElementById("display-realm").innerText;
+        }
+
+        function findAllRootStartKeys() {
+            // 🌟 修改：篩選出 "0" 或是擁有 isCustomStart 屬性的所有合法起點
+            let validStarts = Object.keys(storyDatabase).filter(k => {
+                return k === "0" || (storyDatabase[k] && storyDatabase[k].isCustomStart === true);
+            });
+            
+            return validStarts.length > 0 ? validStarts : ["0"];
+        }
+
+        function jumpToRandomStartNode() {
+            let startKeys = findAllRootStartKeys();
+            let rKey = startKeys[Math.floor(Math.random() * startKeys.length)];
+            showCustomMessage(`🎲 隨機跳轉至測試主線：【${storyDatabase[rKey].title || rKey}】`);
+            activeFocusedRootKey = rKey;
+            loadNode(rKey);
+            buildFateTreeCanvas();
+        }
+
+        function initGame() {
+            let localData = localStorage.getItem("my_custom_plots_v7_final");
+            if (localData) {
+                storyDatabase = JSON.parse(localData);
+            } else {
+                if (typeof myPlotsData !== 'undefined' && Object.keys(myPlotsData).length > 0) {
+                    storyDatabase = JSON.parse(JSON.stringify(myPlotsData));
+                } else {
+                    storyDatabase = {
+                        "0": {
+                            "title": "⏳ 【起點】前塵溯源",
+                            "text": "這是你的自製故事起點。請點選上方打開「劇本命運線」後台來開始規劃擴充你的全新人生吧！",
+                            "choices": []
+                        }
+                    };
+                }
+                localStorage.setItem("my_custom_plots_v7_final", JSON.stringify(storyDatabase));
+            }
+            
+            let savedPos = localStorage.getItem("my_plots_positions_v7_final");
+            if (savedPos) customNodePositions = JSON.parse(savedPos);
+            
+            activeFocusedRootKey = "0";
+
+            // 🎯 【黃金網格標準】：橫向起點 80，間距 290；縱向起點 300，間距 125
+            let i = 1;
+            Object.keys(storyDatabase).forEach(k => {
+                if(!customNodePositions[k]) {
+                    // 統一用嚴格的倍數計算初始位置
+                    let col = i % 10;
+                    let row = Math.floor(i / 10);
+                    customNodePositions[k] = { 
+                        x: 80 + (col * 290), 
+                        y: 300 + (row * 125) 
+                    };
+                    i++;
+                }
+            });
+
+            checkUndoButtonVisibility();
+
+            // 動態更新起點選單
+            function updateStartNodeSelect() {
+                const select = document.getElementById("init-start-node");
+                if (!select) return;
+                
+                // 找出所有起點節點（沒有被任何節點指向的節點，加上節點0）
+                let startKeys = Object.keys(storyDatabase).filter(k => {
+                    // 節點0永遠是起點
+                    if (k === "0") return true;
+                    // 檢查是否被其他節點指向
+                    let isReferenced = Object.keys(storyDatabase).some(otherKey => {
+                        return storyDatabase[otherKey].choices && 
+                            storyDatabase[otherKey].choices.some(c => c.next === k);
+                    });
+                    return !isReferenced;
+                });
+                
+                // 清空並重新填入選項
+                select.innerHTML = "";
+                startKeys.forEach(key => {
+                    const node = storyDatabase[key];
+                    const title = node.title || key;
+                    const option = document.createElement("option");
+                    option.value = key;
+                    option.textContent = `【${key}】${title.substring(0, 30)}`;
+                    select.appendChild(option);
+                });
+            }
+
+            // 在 initGame 結尾呼叫
+            updateStartNodeSelect();
+        }
+
+        function updateInventoryUI() {
+            const container = document.getElementById("player-inventory");
+            if (playerInventory.length === 0) {
+                container.innerHTML = `<span style="color:#666; font-size:12px; font-style:italic;">空無一物...</span>`;
+                return;
+            }
+            container.innerHTML = "";
+            playerInventory.forEach(item => {
+                container.innerHTML += `<span class="item-tag">${item}</span>`;
+            });
+        }
+
+        function updateHeroinesUI() {
+            const container = document.getElementById("player-heroines");
+            const keys = Object.keys(playerHeroines);
+            if (keys.length === 0) {
+                container.innerHTML = `<span style="color:#666; font-size:12px; font-style:italic;">暫無紅顏因果...</span>`;
+                return;
+            }
+            container.innerHTML = "";
+            keys.forEach(name => {
+                const h = playerHeroines[name];
+                let waifuTag = "";
+                
+                // 根據狀態文字決定渲染樣式
+                if (h.status === "傾心伴侶" || h.status.includes("伴侶") || h.status.includes("老婆")) {
+                    waifuTag = `<span class="status-waifu">💍 ${h.status}</span>`;
+                } else if (h.status === "反目成仇" || h.status.includes("仇人") || h.status.includes("敵人")) {
+                    waifuTag = `<span class="status-hate">⚡ ${h.status} (${h.love})</span>`;
+                } else {
+                    let color = h.love < 0 ? '#e74c3c' : '#aaa';
+                    waifuTag = `<span style="color:${color}; font-size:11px;">[${h.status}] 好感度: ${h.love}</span>`;
+                }
+                
+                let barWidth = Math.max(0, Math.min(h.love, 100));
+                container.innerHTML += `
+                    <div class="heroine-box">
+                        <div class="heroine-header"><span>${name}</span>${waifuTag}</div>
+                        <div class="heroine-bar-bg"><div class="heroine-bar-fill" style="width: ${barWidth}%;"></div></div>
+                    </div>
+                `;
+            });
+        }
+
+        function getTypingSpeedDelay() {
+            let val = parseInt(document.getElementById("text-speed-slider").value) || 70;
+            return Math.max(0, 100 - val);
+        }
+
+        let isTyping = false;
+        let typewriterTimer = null;
+
+        function loadNode(nodeKey) {
+            currentPlayingKey = nodeKey;
+            const logArea = document.getElementById("game-log");
+            const choiceBox = document.getElementById("ui-choices");
+            
+            choiceBox.innerHTML = "";
+            if(nodeKey === "0") logArea.innerHTML = "";
+            
+            const node = storyDatabase[nodeKey];
+            if (!node) {
+                logArea.innerHTML += `<div class="sys-alert-msg" style="color:#e74c3c;">⚠️ 命運走入了虛無：找不到節點 [${nodeKey}]。</div>`;
+                return;
+            }
+
+            if (isTyping) {
+                clearTimeout(typewriterTimer);
+                isTyping = false;
+            }
+
+            // 🌟【核心新增】：抓取目前畫面上顯示的玩家自訂姓名
+            const currentPlayerName = document.getElementById("display-name").innerText || "墨染";
+
+            // 🌟【核心新增】：將標題與內文中的 {name}、[玩家名稱]、@玩家 全部動態替換掉
+            let rawTitle = node.title || "";
+            let processedTitle = rawTitle
+                .replace(/{name}/g, currentPlayerName)
+                .replace(/\[玩家名稱\]/g, currentPlayerName)
+                .replace(/@玩家/g, currentPlayerName);
+
+            let rawText = node.text || "";
+            let processedText = rawText
+                .replace(/{name}/g, currentPlayerName)
+                .replace(/\[玩家名稱\]/g, currentPlayerName)
+                .replace(/@玩家/g, currentPlayerName);
+
+            // 拿掉 HTML 標籤以便打字機運作
+            let cleanText = processedText.replace(/<\/?[^>]+(>|$)/g, ""); 
+            let lines = cleanText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+
+            let uniqueId = "block-" + Date.now();
+            let blockHtml = `
+                        <div style="margin-top:10px;" id="${uniqueId}">
+                            <div class="story-block_title">${processedTitle}</div> <div class="story-block" id="text-${uniqueId}"></div>
+                            <div id="updates-${uniqueId}"></div>
+                        </div>
+                    `;
+            logArea.innerHTML += blockHtml;
+            
+            let blockDiv = document.getElementById(uniqueId);
+            let textDiv = document.getElementById("text-" + uniqueId);
+            let updatesDiv = document.getElementById("updates-" + uniqueId);
+
+            setTimeout(() => {
+                blockDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 50);
+
+            isTyping = true;
+            let currentLine = 0;
+            let currentChar = 0;
+
+            logArea.onclick = function() {
+                if (isTyping) finishTyping();
+            };
+
+            function finishTyping() {
+                isTyping = false;
+                clearTimeout(typewriterTimer);
+                
+                let oldP = textDiv.querySelector(".typing-cursor");
+                if(oldP) oldP.classList.remove("typing-cursor");
+
+                textDiv.innerHTML = lines.map(l => `<p>${l}</p>`).join("");
+                processUpdates(node, updatesDiv);
+                renderChoices(node);
+                logArea.onclick = null;
+
+                setTimeout(() => {
+                    logArea.scrollTo({ top: logArea.scrollHeight, behavior: 'smooth' });
+                }, 100);
+            }
+
+            function typeNextChar() {
+                if (!isTyping) return;
+
+                if (currentLine < lines.length) {
+                    if (currentChar === 0) {
+                        let oldP = textDiv.querySelector(".typing-cursor");
+                        if(oldP) oldP.classList.remove("typing-cursor");
+
+                        let p = document.createElement("p");
+                        p.classList.add("typing-cursor");
+                        textDiv.appendChild(p);
+                    }
+                    let pTags = textDiv.getElementsByTagName("p");
+                    let currentP = pTags[pTags.length - 1];
+
+                    if (currentChar < lines[currentLine].length) {
+                        currentP.innerHTML += lines[currentLine].charAt(currentChar);
+                        currentChar++;
+
+                        let bottomOfText = currentP.offsetTop + currentP.offsetHeight;
+                        let bottomOfView = logArea.scrollTop + logArea.clientHeight;
+                        if (bottomOfText > bottomOfView) {
+                            logArea.scrollTop = bottomOfText - logArea.clientHeight + 30; 
+                        }
+
+                        let delay = getTypingSpeedDelay();
+                        typewriterTimer = setTimeout(typeNextChar, delay); 
+                    } else {
+                        currentLine++;
+                        currentChar = 0;
+                        let lineDelay = getTypingSpeedDelay() * 4 + 50; 
+                        typewriterTimer = setTimeout(typeNextChar, lineDelay); 
+                    }
+                } else {
+                    finishTyping();
+                }
+            }
+            
+            if (getTypingSpeedDelay() === 0) {
+                finishTyping();
+            } else {
+                typeNextChar();
+            }
+        }
+
+        function processUpdates(node, targetDiv) {
+            let updatesHtml = "";
+            if (node.updates) {
+                if (node.updates.timeline) {
+                    applyTimeLineEffects(node.updates.timeline);
+                    updatesHtml += `<div class="sys-alert-msg" style="color:#9b59b6; background:rgba(155,89,182,0.1); border-left-color:#9b59b6;">⏳ 時空發生扭切！你來到了 ${node.updates.timeline === 'modern' ? '【現代都市】' : '【古代修仙界】'}！</div>`;
+                }
+                if (node.updates.realm) document.getElementById("display-realm").innerText = node.updates.realm;
+
+                let itemsToProcess = [];
+                if (node.updates.itemAction && node.updates.itemName) {
+                    itemsToProcess.push({action: node.updates.itemAction, name: node.updates.itemName});
+                }
+                if (node.updates.items && Array.isArray(node.updates.items)) {
+                    itemsToProcess = itemsToProcess.concat(node.updates.items);
+                }
+                itemsToProcess.forEach(itemData => {
+                    const action = itemData.action;
+                    const itemName = itemData.name.trim();
+                    if(itemName) {
+                        if (action === "get" && !playerInventory.includes(itemName)) {
+                            playerInventory.push(itemName);
+                            updatesHtml += `<div class="sys-alert-msg">✨ 獲得物品：【${itemName}】已放入儲物袋。</div>`;
+                        } else if (action === "lose") {
+                            playerInventory = playerInventory.filter(i => i !== itemName);
+                            updatesHtml += `<div class="sys-alert-msg">❌ 失去物品：【${itemName}】已從背包移除。</div>`;
+                        }
+                    }
+                });
+                if(itemsToProcess.length > 0) updateInventoryUI();
+
+                // 處理位置變更
+                if (node.updates.location) {
+                    playerLocation = node.updates.location;
+                    updateLocationUI();
+                    updatesHtml += `<div class="sys-alert-msg" style="color:#45f3ff;">🗺️ 前往：【${playerLocation}】</div>`;
+                }
+
+                // 處理功法變動
+                if (node.updates.skills && Array.isArray(node.updates.skills)) {
+                    node.updates.skills.forEach(skillData => {
+                        const action = skillData.action;
+                        const skillName = skillData.name.trim();
+                        if (skillName) {
+                            if (action === "learn" && !playerSkills.includes(skillName)) {
+                                playerSkills.push(skillName);
+                                updatesHtml += `<div class="sys-alert-msg" style="color:#f1c40f;">📖 習得功法：【${skillName}】</div>`;
+                            } else if (action === "forget") {
+                                playerSkills = playerSkills.filter(s => s !== skillName);
+                                updatesHtml += `<div class="sys-alert-msg" style="color:#e74c3c;">📖 遺忘功法：【${skillName}】</div>`;
+                            }
+                        }
+                    });
+                    updateSkillsUI();
+                }
+
+                let heroinesToProcess = [];
+                if (node.updates.loveName) {
+                    heroinesToProcess.push({
+                        name: node.updates.loveName,
+                        eventText: node.updates.loveEventText || "",
+                        favChange: parseInt(node.updates.favChange) || 0,
+                        relation: node.updates.relation || "相識"
+                    });
+                }
+                if (node.updates.heroines && Array.isArray(node.updates.heroines)) {
+                    heroinesToProcess = heroinesToProcess.concat(node.updates.heroines);
+                }
+                heroinesToProcess.forEach(hData => {
+                    const targetName = hData.name.trim();
+                    if (!targetName) return;
+                    
+                    // 🌟 完全自訂化改動：第一次遇到時不再補底 50 點，直接從 0 開始！
+                    if (!playerHeroines[targetName]) {
+                        playerHeroines[targetName] = { love: 0, status: "相識" };
+                    }
+                    
+                    const evtDesc = hData.eventText ? `<span style="color:#ffc107;">【事件：${hData.eventText}】</span><br>` : "";
+                    const fChange = parseInt(hData.favChange) || 0;
+                    
+                    playerHeroines[targetName].love += fChange;
+                    if (hData.relation) {
+                        playerHeroines[targetName].status = hData.relation;
+                    }
+                    
+                    let changeWord = fChange >= 0 ? `增加 ${fChange}` : `降低 ${Math.abs(fChange)}`;
+                    updatesHtml += `
+                        <div class="love-alert-msg">
+                            💞 <b>紅顏羈絆變動：</b> 與「${targetName}」的關係發生了變化！<br>
+                            ${evtDesc}好感度${changeWord}（目前：${playerHeroines[targetName].love}），當前關係狀態：【${playerHeroines[targetName].status}】
+                        </div>
+                    `;
+                });
+                if(heroinesToProcess.length > 0) updateHeroinesUI();
+            }
+            targetDiv.innerHTML = updatesHtml;
+        }
+
+        function renderChoices(node) {
+            const choiceBox = document.getElementById("ui-choices");
+            choiceBox.innerHTML = "";
+            if (node.choices && node.choices.length > 0) {
+                node.choices.forEach((c, index) => {
+                    let isLocked = false;
+                    let lockReason = "";
+                    
+                    if (c.condType === "item" && c.condValue) {
+                        if (!playerInventory.includes(c.condValue.trim())) {
+                            isLocked = true;
+                            lockReason = ` (需要有物品: 【${c.condValue}】)`;
+                        }
+                    } else if (c.condType === "love" && c.condHeroine && c.condValue) {
+                        let currentLove = playerHeroines[c.condHeroine.trim()] ? playerHeroines[c.condHeroine.trim()].love : 0;
+                        if (currentLove < parseInt(c.condValue)) {
+                            isLocked = true;
+                            lockReason = ` (與 ${c.condHeroine} 的好感度需達 ${c.condValue})`;
+                        }
+                    }
+                    
+                    let delay = index * 120; 
+                    let animStyle = `animation: popIn 0.4s ease forwards; animation-delay: ${delay}ms; opacity: 0;`;
+
+                    if (isLocked) {
+                        choiceBox.innerHTML += `<button class="choice-btn locked" style="${animStyle}" disabled>🔒 ${c.text} ${lockReason}</button>`;
+                    } else {
+                        choiceBox.innerHTML += `<button class="choice-btn" style="${animStyle}" onclick="loadNode('${c.next}')">👉 ${c.text}</button>`;
+                    }
+                });
+            } else {
+                choiceBox.innerHTML += `<div style="text-align:center; padding:10px; color:#555; animation: popIn 0.5s ease forwards; opacity: 0;">🏁 劇情至此暫時告一段落。</div>`;
+            }
+        }
+
+        function buildFateTreeCanvas() {
+            const canvas = document.getElementById("fate-timeline-view");
+            const svg = document.getElementById("fate-svg-canvas");
+            
+            $(".node-wrapper").remove();
+            svg.innerHTML = "";
+
+            let allKeys = Object.keys(storyDatabase);
+            
+            // 建立一個快速查詢位置是否被佔用的 Map
+            let positionOccupancy = new Map();
+            allKeys.forEach(k => {
+                const pos = customNodePositions[k];
+                if (pos) {
+                    const key = `${pos.x},${pos.y}`;
+                    positionOccupancy.set(key, true);
+                }
+            });
+            
+            // 輔助函數：檢查某個位置是否已有節點
+            function isPositionOccupied(x, y) {
+                return positionOccupancy.has(`${x},${y}`);
+            }
+            
+            allKeys.forEach(k => {
+                const node = storyDatabase[k];
+                const pos = customNodePositions[k] || { x: 100, y: 100 };
+                
+                let activeClass = (k === currentPlayingKey) ? "active-play" : "";
+                let selectClass = (k === selectedEditingKey) ? "selected-trace" : "";
+                
+                // 計算右側和下方目標位置
+                const spacingX = 290;
+                const spacingY = 125;
+                const rightTargetX = pos.x + spacingX;
+                const rightTargetY = pos.y;
+                const downTargetX = pos.x;
+                const downTargetY = pos.y + spacingY;
+                
+                // 檢查右側和下方是否已有節點
+                const hasRightNode = isPositionOccupied(rightTargetX, rightTargetY);
+                const hasDownNode = isPositionOccupied(downTargetX, downTargetY);
+                
+                // 決定是否顯示按鈕（只有當該位置「空」時才顯示）
+                const showRightAdder = !hasRightNode;
+                const showDownAdder = !hasDownNode;
+                
+                // 右側按鈕的 HTML（如果位置已被佔用就不顯示）
+                const rightAdderHtml = showRightAdder ? `
+                    <div class="quick-adder adder-right" onclick="createNewBranchNode('${k}', 'right')">
+                        <div class="dash-preview-box">➕ 橫向順延新劇情</div>
+                    </div>
+                ` : '';
+                
+                // 下方按鈕的 HTML
+                let downAdderHtml = '';
+                if (showDownAdder) {
+                    if (k === '0') {
+                        downAdderHtml = `
+                            <div class="quick-adder adder-down" onclick="createNewStartNode()">
+                                <div class="dash-preview-box">➕ 新增平行起點</div>
+                            </div>
+                        `;
+                    } else {
+                        downAdderHtml = `
+                            <div class="quick-adder adder-down" onclick="createNewBranchNode('${k}', 'down')">
+                                <div class="dash-preview-box">➕ 下方開闢全新分支選項</div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                let nodeHtml = `
+                    <div class="node-wrapper" id="wrap-${k}" style="left:${pos.x}px; top:${pos.y}px;" data-key="${k}">
+                        ${k !== "0" ? '<div class="node-delete-x" onclick="deleteNodeFromCanvas(event, \'' + k + '\')">×</div>' : ''}
+                        <div class="fate-node-card ${activeClass} ${selectClass}" onclick="selectNodeForEdit('${k}')">
+                            <div class="node-card-title">📍 [${k}] ${node.title || '無標題'}</div>
+                            <div class="node-card-preview">${node.text ? node.text.substring(0,18) : ''}...</div>
+                        </div>
+                        ${rightAdderHtml}
+                        ${downAdderHtml}
+                    </div>
+                `;
+                $(canvas).append(nodeHtml);
+                makeNodeDraggable(k);
+            });
+
+            allKeys.forEach(k => {
+                const node = storyDatabase[k];
+                if (node.choices && node.choices.length > 0) {
+                    node.choices.forEach(c => {
+                        if (storyDatabase[c.next]) {
+                            drawConnectionLine(k, c.next, c.text);
+                        }
+                    });
+                }
+            });
+        }
+
+        function makeNodeDraggable(k) {
+            let wrapper = document.getElementById(`wrap-${k}`);
+            let card = wrapper.querySelector(".fate-node-card");
+            let isDragging = false;
+            let startX, startY;
+            let originalX, originalY;  // ✅ 新增：記錄移動前的原始位置
+
+            function onDragStart(e) {
+                if(e.target.classList.contains("node-delete-x")) return;
+                isDragging = true;
+                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                startX = clientX - wrapper.offsetLeft;
+                startY = clientY - wrapper.offsetTop;
+                
+                // ✅ 記錄移動前的原始位置
+                originalX = customNodePositions[k].x;
+                originalY = customNodePositions[k].y;
+                
+                wrapper.style.zIndex = 200;
+            }
+
+            function onDragMove(e) {
+                if (!isDragging) return;
+                e.preventDefault();
+                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                let nx = clientX - startX;
+                let ny = clientY - startY;
+                nx = Math.max(0, Math.min(nx, 5500));
+                ny = Math.max(0, Math.min(ny, 3800));
+                wrapper.style.left = nx + "px";
+                wrapper.style.top = ny + "px";
+                
+                // ✅ 移動過程中只更新 DOM，不更新 customNodePositions
+                // 等放開時再決定是否更新
+                
+                if(e.touches) e.preventDefault(); 
+            }
+
+            function onDragEnd() {
+                if (isDragging) {
+                    isDragging = false;
+                    wrapper.style.zIndex = 5;
+
+                    // 獲取目前拖曳後的位置
+                    let currentX = parseInt(wrapper.style.left);
+                    let currentY = parseInt(wrapper.style.top);
+                    
+                    // 吸附網格邏輯
+                    let rawX = currentX - 80;
+                    let rawY = currentY - 300;
+                    
+                    let finalX = 80 + Math.round(rawX / 290) * 290;
+                    let finalY = 300 + Math.round(rawY / 125) * 125;
+                    
+                    if (finalX < 80) finalX = 80;
+                    if (finalY < 50) finalY = 50;
+
+                    // 檢查目標位置是否已被其他節點佔用
+                    let isOccupied = false;
+                    for (let [otherKey, pos] of Object.entries(customNodePositions)) {
+                        if (otherKey !== k) {
+                            if (Math.abs(pos.x - finalX) <= 10 && Math.abs(pos.y - finalY) <= 10) {
+                                isOccupied = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (isOccupied) {
+                        // ✅ 目標位置被佔用：彈回原始位置
+                        wrapper.style.left = originalX + "px";
+                        wrapper.style.top = originalY + "px";
+                    } else {
+                        // ✅ 目標位置空閒：更新到新位置
+                        wrapper.style.left = finalX + "px";
+                        wrapper.style.top = finalY + "px";
+                        customNodePositions[k] = { x: finalX, y: finalY };
+                    }
+                    
+                    updateConnectedLines(k);
+                    localStorage.setItem("my_plots_positions_v7_final", JSON.stringify(customNodePositions));
+                }
+            }
+
+            card.addEventListener("mousedown", onDragStart);
+            document.addEventListener("mousemove", onDragMove);
+            document.addEventListener("mouseup", onDragEnd);
+            card.addEventListener("touchstart", onDragStart, {passive: false});
+            document.addEventListener("touchmove", onDragMove, {passive: false});
+            document.addEventListener("touchend", onDragEnd);
+        }
+
+        function drawConnectionLine(fromKey, toKey, labelText) {
+            const svg = document.getElementById("fate-svg-canvas");
+            const p1 = customNodePositions[fromKey] || { x:0, y:0 };
+            const p2 = customNodePositions[toKey] || { x:0, y:0 };
+
+            let x1 = p1.x + 230; let y1 = p1.y + 37;
+            let x2 = p2.x;     let y2 = p2.y + 37;
+
+            let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            let cp1x = x1 + (x2 - x1) / 2;
+            let cp1y = y1;
+            let cp2x = x1 + (x2 - x1) / 2;
+            let cp2y = y2;
+            
+            let d = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
+            path.setAttribute("d", d);
+            path.setAttribute("stroke", "rgba(69, 243, 255, 0.45)");
+            path.setAttribute("stroke-width", "2.5");
+            path.setAttribute("fill", "none");
+            path.setAttribute("class", `line-from-${fromKey} line-to-${toKey}`);
+            svg.appendChild(path);
+        }
+
+        function updateConnectedLines(k) {
+            const svg = document.getElementById("fate-svg-canvas");
+            // 移除所有與此節點相關的舊連線
+            $(`.line-from-${k}`).remove();
+            $(`.line-to-${k}`).remove();
+            
+            // 重新繪製從此節點出發的連線
+            if(storyDatabase[k] && storyDatabase[k].choices) {
+                storyDatabase[k].choices.forEach(c => {
+                    if(storyDatabase[c.next]) drawConnectionLine(k, c.next, c.text);
+                });
+            }
+            // 重新繪製指向此節點的連線
+            Object.keys(storyDatabase).forEach(otherKey => {
+                if(storyDatabase[otherKey].choices) {
+                    storyDatabase[otherKey].choices.forEach(c => {
+                        if(c.next === k) drawConnectionLine(otherKey, k, c.text);
+                    });
+                }
+            });
+        }
+        
+        function createNewStartNode() {
+            let newId = "node_" + Math.floor(Math.random() * 900000 + 100000);
+            
+            // 計算新起點的位置：找出所有現有「未被刪除」的起點，放在最下方
+            let startKeys = [];
+            Object.keys(storyDatabase).forEach(k => {
+                // 檢查是否被任何節點指向（被指向的就不是起點）
+                let isReferenced = Object.keys(storyDatabase).some(otherKey => {
+                    if (otherKey === k) return false;
+                    return storyDatabase[otherKey].choices && 
+                        storyDatabase[otherKey].choices.some(c => c.next === k);
+                });
+                if (!isReferenced) {
+                    startKeys.push(k);
+                }
+            });
+
+            // 如果沒有找到起點，至少包含節點0
+            if (startKeys.length === 0 && storyDatabase["0"]) {
+                startKeys = ["0"];
+            }
+
+            // 計算最大 Y 值（只計算存在的節點）
+            let maxY = 300;
+            startKeys.forEach(k => {
+                const pos = customNodePositions[k];
+                if (pos && pos.y > maxY) {
+                    maxY = pos.y;
+                }
+            });
+
+            // 新起點放在最大 Y 的下方 125px
+            let targetY = maxY + 125;
+
+            // 防重疊：確保新位置沒有被其他節點佔用
+            let isOccupied = true;
+            let attempts = 0;
+            while (isOccupied && attempts < 20) {
+                isOccupied = Object.keys(customNodePositions).some(k => {
+                    return Math.abs(customNodePositions[k].x - 80) < 10 && 
+                        Math.abs(customNodePositions[k].y - targetY) < 10;
+                });
+                if (isOccupied) {
+                    targetY += 125;
+                }
+                attempts++;
+            }
+            
+            saveBackupToStorage(JSON.parse(JSON.stringify(storyDatabase)), JSON.parse(JSON.stringify(customNodePositions)));
+            
+            storyDatabase[newId] = {
+                title: "🌟 【新起點】命運岔路",
+                text: "這是一條全新的命運軌跡。請在此編寫屬於你的傳奇開端...",
+                choices: [],
+                isCustomStart: true
+            };
+            
+            customNodePositions[newId] = { x: 80, y: targetY };
+            
+            localStorage.setItem("my_custom_plots_v7_final", JSON.stringify(storyDatabase));
+            localStorage.setItem("my_plots_positions_v7_final", JSON.stringify(customNodePositions));
+            buildFateTreeCanvas();
+            
+            selectNodeForEdit(newId);
+
+            updateStartNodeSelect();
+
+            showCustomMessage(`✅ 已新增平行起點節點：【${newId}】`);
+        }
+
+        function createNewBranchNode(parentKey, direction) {
+            let newId = "node_" + Math.floor(Math.random() * 900000 + 100000);
+            let pPos = customNodePositions[parentKey] || { x: 80, y: 300 };
+            
+            const spacingX = 290;
+            const spacingY = 125;
+            
+            let targetX, targetY;
+            
+            if (direction === "right") {
+                targetX = pPos.x + spacingX;
+                targetY = pPos.y;
+            } else {
+                // 向下：直接放在父節點正下方 + 1px（強行插入）
+                targetX = pPos.x;
+                targetY = pPos.y + 1;  // 關鍵：+1 而不是 +125
+            }
+            
+            let isOccupied = Object.keys(customNodePositions).some(k => {
+                let pos = customNodePositions[k];
+                return pos && pos.x === targetX && pos.y === targetY;
+            });
+            
+            if (isOccupied) {
+                showCustomMessage("⚠️ 該位置已經有劇情節點！無法在此處新增。");
+                return;
+            }
+
+            // 🔥 核心：找出所有 Y 座標大於等於 targetY 的節點，全部往下推
+            let nodesToPush = [];
+            Object.keys(customNodePositions).forEach(k => {
+                let pos = customNodePositions[k];
+                if (k !== parentKey && pos && pos.x === targetX && pos.y >= targetY) {
+                    nodesToPush.push(k);
+                }
+            });
+            
+            // 從最下面的開始往下推（避免覆蓋）
+            nodesToPush.sort((a, b) => customNodePositions[b].y - customNodePositions[a].y);
+            nodesToPush.forEach(k => {
+                customNodePositions[k].y += spacingY;
+            });
+            
+            saveBackupToStorage(JSON.parse(JSON.stringify(storyDatabase)), JSON.parse(JSON.stringify(customNodePositions)));
+            
+            // 創建新節點
+            storyDatabase[newId] = {
+                title: direction === "right" ? "🆕 衍生主線劇情" : "🌿 全新並列分支",
+                text: "在此輸入分支新劇情的發展脈絡內文...",
+                choices: []
+            };
+            
+            customNodePositions[newId] = { x: targetX, y: targetY };
+            
+            // 建立連結
+            if (!storyDatabase[parentKey].choices) {
+                storyDatabase[parentKey].choices = [];
+            }
+            
+            let alreadyLinked = storyDatabase[parentKey].choices.some(c => c.next === newId);
+            if (!alreadyLinked) {
+                storyDatabase[parentKey].choices.push({
+                    text: direction === "right" ? "👉 繼續前進" : "🔱 新分支選項文字",
+                    next: newId
+                });
+            }
+            
+            localStorage.setItem("my_custom_plots_v7_final", JSON.stringify(storyDatabase));
+            localStorage.setItem("my_plots_positions_v7_final", JSON.stringify(customNodePositions));
+            buildFateTreeCanvas();
+            
+            selectNodeForEdit(newId);
+        }
+
+        function deleteNodeFromCanvas(event, k) {
+            event.stopPropagation();
+            
+            if (confirm(`⚠️ 確定要徹底摧毀節點 [${k}] 嗎？\n注意：這將會連帶將其後續派生出來的所有「子孫支線劇情」一併徹底抹除、不留痕跡！`)) {
+                
+                // 💾 備份快照（萬一刪錯了，依然可以用上方的「復原上一次刪除」一鍵救回！）
+                saveBackupToStorage(JSON.parse(JSON.stringify(storyDatabase)), JSON.parse(JSON.stringify(customNodePositions)));
+                
+                // 🔍 【智能遞迴刪除演算法】：搜出所有派生子節點並連帶拔除
+                let nodesToDelete = new Set();
+                
+                function collectAllChildren(currentKey) {
+                    if (nodesToDelete.has(currentKey)) return;
+                    
+                    // 🌟【新增的安全保護核心】：
+                    // 如果目前搜到的節點不是使用者「手動點擊要刪除的源頭節點(k)」，
+                    // 且這個節點被標記為了自訂起點（isCustomStart === true），
+                    // 那就絕對不能碰它！直接返回攔截，保護它和它的所有子孫！
+                    if (currentKey !== k && storyDatabase[currentKey] && storyDatabase[currentKey].isCustomStart === true) {
+                        return; 
+                    }
+                    
+                    nodesToDelete.add(currentKey);
+                    
+                    let node = storyDatabase[currentKey];
+                    if (node && node.choices && node.choices.length > 0) {
+                        node.choices.forEach(c => {
+                            if (storyDatabase[c.next]) {
+                                collectAllChildren(c.next); // 遞迴向下追蹤
+                            }
+                        });
+                    }
+                }
+                
+                // 從目前點擊的這張卡片開始往下收集所有要一起陪葬的子孫
+                collectAllChildren(k);
+                
+                // 💥 開始執行跨維度的大抹除
+                nodesToDelete.forEach(targetKey => {
+                    delete storyDatabase[targetKey];
+                    delete customNodePositions[targetKey];
+                });
+                
+                // 🔗 【斬斷上游連結】：檢查大資料庫剩下的人，看是誰的 choices 還留著連到已被刪除卡片的殘留垃圾，把它們也清理乾淨
+                Object.keys(storyDatabase).forEach(key => {
+                    if (storyDatabase[key].choices) {
+                        // 如果選項連往的目標已經不存在於資料庫中，就把該選項過濾掉
+                        storyDatabase[key].choices = storyDatabase[key].choices.filter(c => storyDatabase[c.next]);
+                    }
+                });
+
+                // 💾 同步更新快取與畫布
+                localStorage.setItem("my_custom_plots_v7_final", JSON.stringify(storyDatabase));
+                localStorage.setItem("my_plots_positions_v7_final", JSON.stringify(customNodePositions));
+                
+                if (nodesToDelete.has(selectedEditingKey)) closeEditorPanel();
+                
+                buildFateTreeCanvas();
+                showCustomMessage(`🎯 淨化成功！已連帶徹底抹除 ${nodesToDelete.size} 個相關劇本節點。`);
+            }
+        }
+
+        function selectNodeForEdit(k) {
+            selectedEditingKey = k;
+            $(".fate-node-card").removeClass("selected-trace");
+            $(`#wrap-${k} .fate-node-card`).addClass("selected-trace");
+            
+            document.getElementById("editor-panel").classList.add("open");
+            resetEditorToDatabase();
+        }
+
+        function closeEditorPanel() {
+            selectedEditingKey = null;
+            document.getElementById("editor-panel").classList.remove("open");
+            $(".fate-node-card").removeClass("selected-trace");
+        }
+
+        function resetEditorToDatabase() {
+            if(!selectedEditingKey || !storyDatabase[selectedEditingKey]) return;
+            const node = storyDatabase[selectedEditingKey];
+            
+            document.getElementById("edit-title").value = node.title || "";
+            document.getElementById("edit-text").value = node.text || "";
+            
+            document.getElementById("edit-update-timeline").value = (node.updates && node.updates.timeline) ? node.updates.timeline : "";
+            document.getElementById("edit-update-realm").value = (node.updates && node.updates.realm) ? node.updates.realm : "";
+            
+            let sourceListHtml = "";
+            Object.keys(storyDatabase).forEach(k => {
+                if(storyDatabase[k].choices) {
+                    storyDatabase[k].choices.forEach(c => {
+                        if(c.next === selectedEditingKey) {
+                            sourceListHtml += ` <span class="source-link-btn" onclick="selectNodeForEdit('${k}')">[${k}] ${storyDatabase[k].title}</span> &nbsp;`;
+                        }
+                    });
+                }
+            });
+            document.getElementById("node-source-list").innerHTML = sourceListHtml || "無前序節點 (可能為主起點線)";
+
+            const itemBox = document.getElementById("visual-items-list");
+            itemBox.innerHTML = "";
+            if (node.updates && node.updates.items) {
+                node.updates.items.forEach(itm => addNewItemRow(itm.action, itm.name));
+            } else if (node.updates && node.updates.itemName) {
+                addNewItemRow(node.updates.itemAction, node.updates.itemName);
+            }
+
+            const hBox = document.getElementById("visual-heroines-list");
+            hBox.innerHTML = "";
+            if (node.updates && node.updates.heroines) {
+                node.updates.heroines.forEach(h => addNewHeroineRow(h.name, h.eventText, h.favChange, h.relation));
+            } else if (node.updates && node.updates.loveName) {
+                addNewHeroineRow(node.updates.loveName, node.updates.loveEventText, node.updates.favChange, node.updates.relation);
+            }
+
+            // 在物品清單載入後，英雄清單載入前，添加：
+            const skillBox = document.getElementById("visual-skills-list");
+            skillBox.innerHTML = "";
+            if (node.updates && node.updates.skills) {
+                node.updates.skills.forEach(s => addNewSkillRow(s.action, s.name));
+            }
+
+            const choiceBox = document.getElementById("visual-choices-list");
+            choiceBox.innerHTML = "";
+            if(node.choices) {
+                node.choices.forEach(c => addNewChoiceRow(c.text, c.next, c.condType, c.condHeroine, c.condValue));
+            }
+        }
+
+        function addNewItemRow(action = "get", name = "") {
+            const container = document.getElementById("visual-items-list");
+            let getSel = action === "get" ? "selected" : "";
+            let loseSel = action === "lose" ? "selected" : "";
+            let html = `
+                <div class="choice-row-item item-config-row" style="border-color:#aaa;">
+                    <select class="row-item-action" style="max-width:70px;"><option value="get" ${getSel}>獲得</option><option value="lose" ${loseSel}>失去</option></select>
+                    <input type="text" class="row-item-name" placeholder="物品名" value="${name}">
+                    <button class="btn-delete-choice" onclick="$(this).parent().remove()">移除</button>
+                </div>
+            `;
+            $(container).append(html);
+        }
+
+        function addNewHeroineRow(name="", eventText="", favChange=0, relation="相識") {
+            const container = document.getElementById("visual-heroines-list");
+            let namesList = getAllExistingHeroineNames();
+            let nameOptions = namesList.map(n => `<option value="${n}" ${n===name?'selected':''}>${n}</option>`).join("");
+            
+            // 🌟 這裡可以直接在 input 裡自由打字自訂關係了！
+            let html = `
+                <div class="choice-row-item heroine-config-row" style="border-color:var(--accent-pink); flex-direction:column; gap:4px;">
+                    <div style="display:flex; gap:5px; width:100%;">
+                        <select class="row-h-name" style="max-width:140px;">${nameOptions}</select>
+                        <input type="number" class="row-h-fav" placeholder="好感變動" value="${favChange}" style="max-width:80px;">
+                        <input type="text" class="row-h-rel" placeholder="自訂關係(如:老婆/相識)" value="${relation}">
+                        <button class="btn-delete-choice" style="margin:0;" onclick="$(this).parent().parent().remove()">移除</button>
+                    </div>
+                    <input type="text" class="row-h-evt" placeholder="觸發情緣特殊事件說明文字" value="${eventText}" style="width:100%;">
+                </div>
+            `;
+            $(container).append(html);
+        }
+
+        function addNewSkillRow(action = "learn", name = "") {
+            const container = document.getElementById("visual-skills-list");
+            let learnSel = action === "learn" ? "selected" : "";
+            let forgetSel = action === "forget" ? "selected" : "";
+            let html = `
+                <div class="choice-row-item skill-config-row" style="border-color:var(--accent-gold);">
+                    <select class="row-skill-action" style="max-width:70px;">
+                        <option value="learn" ${learnSel}>習得</option>
+                        <option value="forget" ${forgetSel}>遺忘</option>
+                    </select>
+                    <input type="text" class="row-skill-name" placeholder="功法名稱" value="${name}" style="flex:2;">
+                    <button class="btn-delete-choice" onclick="$(this).parent().remove()">移除</button>
+                </div>
+            `;
+            $(container).append(html);
+        }
+
+        function addNewChoiceRow(text="", next="", condType="none", condHeroine="", condValue="") {
+            const container = document.getElementById("visual-choices-list");
+            let allKeys = Object.keys(storyDatabase);
+            let targetOptions = allKeys.map(k => `<option value="${k}" ${k===next?'selected':''}>[${k}] ${storyDatabase[k].title}</option>`).join("");
+            
+            let types = { "none": "無條件開通", "item": "背包解鎖", "love": "好感門檻" };
+            let typeOptions = Object.keys(types).map(t => `<option value="${t}" ${t===condType?'selected':''}>${types[t]}</option>`).join("");
+
+            let namesList = getAllExistingHeroineNames();
+            let hOptions = namesList.map(n => `<option value="${n}" ${n===condHeroine?'selected':''}>${n}</option>`).join("");
+
+            let html = `
+                <div class="choice-row-item choice-config-row" style="flex-direction:column; gap:5px;">
+                    <div style="display:flex; gap:5px; width:100%;">
+                        <input type="text" class="row-c-text" placeholder="選項顯示文字" value="${text}" style="flex:2;">
+                        <select class="row-c-next" style="flex:2;">${targetOptions}</select>
+                        <button class="btn-delete-choice" style="margin:0;" onclick="$(this).parent().parent().remove()">刪除</button>
+                    </div>
+                    <div style="display:flex; gap:5px; width:100%; align-items:center; font-size:12px;">
+                        <span>條件：</span>
+                        <select class="row-c-condtype" onchange="toggleCondFields(this)" style="max-width:110px;">${typeOptions}</select>
+                        <select class="row-c-condheroine" style="display:${condType==='love'?'inline-block':'none'}; max-width:110px;">${hOptions}</select>
+                        <input type="text" class="row-c-condval" placeholder="必要名或數值" value="${condValue}" style="display:${condType!=='none'?'inline-block':'none'};">
+                    </div>
+                </div>
+            `;
+            $(container).append(html);
+        }
+
+        function toggleCondFields(element) {
+            let val = element.value;
+            let parent = $(element).parent();
+            if(val === "none") { parent.find(".row-c-condheroine, .row-c-condval").hide(); }
+            else if(val === "item") { parent.find(".row-c-condheroine").hide(); parent.find(".row-c-condval").show().attr("placeholder", "必需持有物品名"); }
+            else if(val === "love") { parent.find(".row-c-condheroine, .row-c-condval").show(); parent.find(".row-c-condval").attr("placeholder", "好感最低門檻值"); }
+        }
+
+        function saveNodeData() {
+            if(!selectedEditingKey) return;
+            
+            let node = storyDatabase[selectedEditingKey];
+            node.title = document.getElementById("edit-title").value.trim() || "未命名節點";
+            node.text = document.getElementById("edit-text").value;
+            
+            node.updates = {};
+            let timelineVal = document.getElementById("edit-update-timeline").value;
+            if(timelineVal) node.updates.timeline = timelineVal;
+            
+            let realmVal = document.getElementById("edit-update-realm").value.trim();
+            if(realmVal) node.updates.realm = realmVal;
+            
+            let itemRows = $(".item-config-row");
+            if(itemRows.length > 0) {
+                node.updates.items = [];
+                itemRows.each(function() {
+                    let act = $(this).find(".row-item-action").val();
+                    let nm = $(this).find(".row-item-name").val().trim();
+                    if(nm) node.updates.items.push({ action: act, name: nm });
+                });
+            }
+            
+            // 處理功法變動
+            let skillRows = $(".skill-config-row");
+            if (skillRows.length > 0) {
+                node.updates.skills = [];
+                skillRows.each(function() {
+                    let act = $(this).find(".row-skill-action").val();
+                    let nm = $(this).find(".row-skill-name").val().trim();
+                    if (nm) node.updates.skills.push({ action: act, name: nm });
+                });
+            }
+
+            let hRows = $(".heroine-config-row");
+            if(hRows.length > 0) {
+                node.updates.heroines = [];
+                hRows.each(function() {
+                    let nm = $(this).find(".row-h-name").val();
+                    let fav = parseInt($(this).find(".row-h-fav").val()) || 0;
+                    let rel = $(this).find(".row-h-rel").val().trim() || "相識";
+                    let evt = $(this).find(".row-h-evt").val().trim();
+                    node.updates.heroines.push({ name: nm, eventText: evt, favChange: fav, relation: rel });
+                });
+            }
+            
+            let cRows = $(".choice-config-row");
+            node.choices = [];
+            cRows.each(function() {
+                let txt = $(this).find(".row-c-text").val().trim();
+                let nxt = $(this).find(".row-c-next").val();
+                let cType = $(this).find(".row-c-condtype").val();
+                let cHero = $(this).find(".row-c-condheroine").val();
+                let cVal = $(this).find(".row-c-condval").val().trim();
+                
+                if(txt && nxt) {
+                    let choiceObj = { text: txt, next: nxt };
+                    
+                    // 🔥 只有當條件不是 "none" 時，才加入條件相關欄位
+                    if (cType && cType !== "none") {
+                        choiceObj.condType = cType;
+                        if (cType === "item" && cVal) {
+                            choiceObj.condValue = cVal;
+                        } else if (cType === "love" && cHero && cVal) {
+                            choiceObj.condHeroine = cHero;
+                            choiceObj.condValue = cVal;
+                        }
+                    }
+                    
+                    node.choices.push(choiceObj);
+                }
+            });
+            
+            localStorage.setItem("my_custom_plots_v7_final", JSON.stringify(storyDatabase));
+            showCustomMessage("💾 當前劇本數據與多重紅顏設定已即時存入緩存！");
+            
+            buildFateTreeCanvas();
+            if(currentPlayingKey === selectedEditingKey) loadNode(currentPlayingKey);
+        }
+        
+        // 🔥 全新改良版導出函數：會自動清理多餘的 none 條件欄位
+        function exportJSON() {
+            // 深拷貝一份資料庫，避免影響原始資料
+            let cleanDatabase = JSON.parse(JSON.stringify(storyDatabase));
+            
+            // 遍歷所有節點，清理 choices 中不必要的欄位
+            Object.keys(cleanDatabase).forEach(key => {
+                const node = cleanDatabase[key];
+                if (node.choices && Array.isArray(node.choices)) {
+                    node.choices = node.choices.map(choice => {
+                        const cleanChoice = { text: choice.text, next: choice.next };
+                        
+                        // 只有當 condType 存在且不是 "none" 時才保留
+                        if (choice.condType && choice.condType !== "none") {
+                            cleanChoice.condType = choice.condType;
+                            if (choice.condType === "item" && choice.condValue) {
+                                cleanChoice.condValue = choice.condValue;
+                            } else if (choice.condType === "love") {
+                                if (choice.condHeroine) cleanChoice.condHeroine = choice.condHeroine;
+                                if (choice.condValue) cleanChoice.condValue = choice.condValue;
+                            }
+                        }
+                        
+                        return cleanChoice;
+                    });
+                }
+                
+                // 清理空的 updates 物件
+                if (node.updates && Object.keys(node.updates).length === 0) {
+                    delete node.updates;
+                }
+            });
+            
+            // 生成乾淨的 plots.js 內容
+            const jsContent = "const myPlotsData = " + JSON.stringify(cleanDatabase, null, 2) + ";\n";
+            const dataStr = "data:text/javascript;charset=utf-8," + encodeURIComponent(jsContent);
+            const dlAnchor = document.createElement('a'); 
+            dlAnchor.setAttribute("href", dataStr); 
+            dlAnchor.setAttribute("download", "plots.js"); 
+            document.body.appendChild(dlAnchor); 
+            dlAnchor.click(); 
+            dlAnchor.remove();
+            
+            showCustomMessage("✅ 導出完成！");
+        }
+
+        function forceReloadFromJS() {
+            if (confirm("⚠️ 警告：這會捨棄你目前在網頁上『還沒導出』的修改，並強制載入 plots.js 檔案裡的最新內容。確定要繼續嗎？")) {
+                if (typeof myPlotsData !== 'undefined' && Object.keys(myPlotsData).length > 0) {
+                    storyDatabase = JSON.parse(JSON.stringify(myPlotsData));
+                    localStorage.setItem("my_custom_plots_v7_final", JSON.stringify(storyDatabase));
+                    showCustomMessage("✅ 已成功從 plots.js 同步最新劇本！網頁即將重新載入。");
+                    location.reload();
+                } else {
+                    showCustomMessage("❌ 錯誤：未在同目錄下偵測到有效的 plots.js 靜態資料庫檔案。");
+                }
+            }
+        }
+
+        function openAdminTimeline() {
+            document.getElementById("admin-timeline-modal").style.display = "flex";
+            updateAdminIdentityBarUI();
+            buildFateTreeCanvas();
+        }
+
+        function closeAdminTimeline() {
+            document.getElementById("admin-timeline-modal").style.display = "none";
+            closeEditorPanel();
+        }
+
+        // ==========================================
+        // 🌌 新增：後台大畫布滑鼠右鍵拖拽平移功能 (Canvas Panning)
+        // ==========================================
+        (function() {
+            let isPanning = false;
+            let startX, startY;
+            let scrollLeft, scrollTop;
+
+            // 取得大後台的外層滾動容器
+            const viewContainer = document.getElementById("fate-timeline-view");
+
+            if (viewContainer) {
+                // 1. 阻斷畫布內的瀏覽器預設右鍵選單，避免干擾拖拽
+                viewContainer.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                });
+
+                // 2. 滑鼠按下事件
+                viewContainer.addEventListener('mousedown', function(e) {
+                    // e.button === 2 代表滑鼠右鍵 (0:左鍵, 1:中鍵, 2:右鍵)
+                    // 且確保點擊的目標不是卡片本身（避免干擾卡片內的點擊事件）
+                    if (e.button === 2) {
+                        isPanning = true;
+                        viewContainer.style.cursor = 'grabbing'; // 變成抓取手勢
+                        
+                        startX = e.pageX - viewContainer.offsetLeft;
+                        startY = e.pageY - viewContainer.offsetTop;
+                        scrollLeft = viewContainer.scrollLeft;
+                        scrollTop = viewContainer.scrollTop;
+                    }
+                });
+
+                // 3. 滑鼠移動事件
+                document.addEventListener('mousemove', function(e) {
+                    if (!isPanning) return;
+                    e.preventDefault();
+
+                    const x = e.pageX - viewContainer.offsetLeft;
+                    const y = e.pageY - viewContainer.offsetTop;
+                    
+                    // 計算滑鼠移動的距離
+                    const walkX = (x - startX); 
+                    const walkY = (y - startY);
+                    
+                    // 讓畫布跟著手勢反向或正向滾動 (減去 walk 代表畫面跟著滑鼠走)
+                    viewContainer.scrollLeft = scrollLeft - walkX;
+                    viewContainer.scrollTop = scrollTop - walkY;
+                });
+
+                // 4. 滑鼠放開或離開視窗事件
+                document.addEventListener('mouseup', function(e) {
+                    if (isPanning && e.button === 2) {
+                        isPanning = false;
+                        viewContainer.style.cursor = 'auto';
+                    }
+                });
+            }
+        })();
+        
+        // ==========================================
+        // 🚀 新增：一鍵主線自動往右樹狀對齊演算法
+        // ==========================================
+        function autoAlignTreeLayout() {
+            if (!confirm("確定要將所有劇情卡片按照「一直線往右分支」的邏輯自動排列整齊嗎？")) return;
+
+            let rowCounter = 0;
+            let visited = new Set();
+            
+            // 🎯 嚴格對齊四合一標準
+            const startX = 80;
+            const startY = 300;
+            const spacingX = 290;
+            const spacingY = 125;
+
+            function layoutNode(key, currentDepth, targetRow) {
+                if (visited.has(key)) return;
+                visited.add(key);
+
+                let calcX = startX + (currentDepth * spacingX);
+                let calcY = startY + (targetRow * spacingY);
+
+                customNodePositions[key] = { x: calcX, y: calcY };
+
+                const node = storyDatabase[key];
+                if (node && node.choices && node.choices.length > 0) {
+                    node.choices.forEach((c, index) => {
+                        if (storyDatabase[c.next] && !visited.has(c.next)) {
+                            if (index > 0) {
+                                rowCounter++;
+                            }
+                            layoutNode(c.next, currentDepth + 1, rowCounter);
+                        }
+                    });
+                }
+            }
+
+            if (storyDatabase["0"]) {
+                layoutNode("0", 0, 0);
+            }
+
+            Object.keys(storyDatabase).forEach(k => {
+                if (!visited.has(k)) {
+                    rowCounter++;
+                    customNodePositions[k] = { x: startX, y: startY + (rowCounter * spacingY) };
+                }
+            });
+
+            localStorage.setItem("my_plots_positions_v7_final", JSON.stringify(customNodePositions));
+            buildFateTreeCanvas();
+            showCustomMessage("🎯 劇本命運線已完全歸位！現在所有系統的間距均已完美統一！");
+        }
+
+        // ==========================================
+        // 後台大畫布滑鼠右鍵拖拽平移功能
+        // ==========================================
+        (function() {
+            let isPanning = false;
+            let startX, startY;
+            let scrollLeft, scrollTop;
+
+            const viewContainer = document.getElementById("fate-timeline-view");
+
+            if (viewContainer) {
+                // 阻斷右鍵選單
+                viewContainer.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                });
+
+                // 右鍵按下：開始平移
+                viewContainer.addEventListener('mousedown', function(e) {
+                    if (e.button === 2) {
+                        isPanning = true;
+                        viewContainer.style.cursor = 'grabbing';
+                        startX = e.pageX - viewContainer.offsetLeft;
+                        startY = e.pageY - viewContainer.offsetTop;
+                        scrollLeft = viewContainer.scrollLeft;
+                        scrollTop = viewContainer.scrollTop;
+                    }
+                });
+
+                // 移動滑鼠：平移畫布
+                document.addEventListener('mousemove', function(e) {
+                    if (!isPanning) return;
+                    e.preventDefault();
+                    const x = e.pageX - viewContainer.offsetLeft;
+                    const y = e.pageY - viewContainer.offsetTop;
+                    viewContainer.scrollLeft = scrollLeft - (x - startX);
+                    viewContainer.scrollTop = scrollTop - (y - startY);
+                });
+
+                // 放開右鍵：結束平移
+                document.addEventListener('mouseup', function(e) {
+                    if (isPanning && e.button === 2) {
+                        isPanning = false;
+                        viewContainer.style.cursor = 'auto';
+                    }
+                });
+            }
+        })();
+
+        function showCustomMessage(msg) {
+            const toast = document.getElementById("custom-toast");
+            const msgBox = document.getElementById("custom-toast-msg");
+            msgBox.innerText = msg;
+            toast.style.display = "flex";
+        }
+
+        document.getElementById("custom-toast-close").onclick = function() {
+            document.getElementById("custom-toast").style.display = "none";
+        };
+
+        // 重新改寫的唯一網頁加載進入點
+        window.onload = function() {
+            initGame();                 // 執行你原本的本地快取與資料庫初始化
+            updateScrollStartNodeSelect(); // 配置全新捲軸內部的剧本起點選單
+            playScrollIntroSequence();  // 啟動捲軸時序開場動畫
+        };
+    </script>
+</body>
+</html>
